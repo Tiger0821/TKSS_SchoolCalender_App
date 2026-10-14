@@ -189,6 +189,14 @@ the day on a watch whose phone has never had Timetable opened.
   class with the time it starts and its room, the breaks between, the class
   that is on outlined with its time left, and the same pixel sky behind. No
   date, no clock, no teachers.
+- **The days ahead** are a swipe away: from right to left goes on to the next
+  school day, and the other way comes back. A day arriving is felt and seen
+  together: a click on the wrist, and at the same moment its name gives a
+  start and its rows come in from the side the swipe came from, one behind
+  another. There are ten days, which is every
+  day of both weeks. Each says at its top which day it is and whether it is
+  in the odd week or the even one (the timetable's Week 1 and Week 2). Left
+  and come back to, the app is at the day the clock leads to again.
 - **The widget** (Smart Stack › Edit › add Timetable) says the class that is
   on with its room and the time it has left, and the class after it with its
   room. From two hours before the first bell it says "Good morning" — in
