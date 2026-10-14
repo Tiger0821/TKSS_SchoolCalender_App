@@ -41,8 +41,8 @@ struct ClassLiveActivity: Widget {
                 /* Where another app has the island too and this is cut down
                    to a dot. The class that is on was tried here, and it is
                    a second set of the label's curtains: 70 KB more on the
-                   fullest day, of an allowance with some 220 KB to spare
-                   (see BlockPanel). A mark that says whose dot it is costs
+                   fullest day as the curtains then were, of an allowance
+                   with some 160 KB to spare (see BlockPanel). A mark that says whose dot it is costs
                    nothing. */
                 Image(systemName: "graduationcap.fill")
                     .foregroundStyle(.white)
@@ -201,100 +201,193 @@ extension ClassActivityAttributes {
 }
 
 /* Shows one panel at a time, changing at set moments, with nothing sent from
-   the app. Each panel is opaque and sits on top of the one before it, hidden
-   behind a curtain that the clock opens — so a panel sweeps in over the one
-   before exactly when its block begins.
-
-   The panels are nested rather than laid side by side: each one's curtain
-   hangs in front of that panel and every later one together. A closed
-   curtain lets a little through (see `curtained`), and side by side, the
-   little that came through from each of a day's sixteen hidden panels added
-   up to a ghost of the afternoon behind the morning's class. Nested, a panel
-   two stages off is behind two sets of curtains and one three off behind
-   three, so the only thing that can show at all is the very next panel. */
+   the app. All the panels are drawn, one on top of another, and the clock
+   hides every one but the one whose time it is. There are two ways of
+   hiding, because each costs something different (see Shutter and Curtain):
+   shutters are quick to draw and heavy to save, and curtains the reverse.
+   The Lock Screen's panel is large and is dragged about with the
+   notifications, so it has the shutters; the island's are a few letters
+   each, and have the curtains. */
 struct TimeSwitch<Panel: View>: View {
+    enum Means { case shutters, curtains }
+
     let stages: [(stage: Stage, from: Date?)]
-    var background = Color.black
+    var by = Means.curtains
     @ViewBuilder var panel: (Stage) -> Panel
 
     var body: some View {
-        nest(from: 0)
+        switch by {
+        case .shutters:
+            ZStack {
+                Color.black
+                ForEach(stages.indices, id: \.self) { index in
+                    whole(index).shuttered(from: stages[index].from,
+                                           until: index + 1 < stages.count ? stages[index + 1].from : nil)
+                }
+                Shutter.restored
+            }
+        case .curtains:
+            nest(from: 0)
+        }
     }
 
-    /// The panel for the stage at `index`, with all the later ones on top of
-    /// it, behind that stage's curtain.
+    private func whole(_ index: Int) -> some View {
+        panel(stages[index].stage)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black)
+    }
+
+    /* The panel for the stage at `index`, with all the later ones on top of
+       it, behind that stage's curtain. Each is solid, and hides the ones
+       before it once it is let in. They are one inside another, and not
+       side by side, so that anything a shut curtain lets through has as
+       many curtains to get through as its panel is stages away. */
     private func nest(from index: Int) -> AnyView {
         guard index < stages.count else { return AnyView(EmptyView()) }
-        let entry = stages[index]
         let stack = ZStack {
-            panel(entry.stage)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(background)
+            whole(index)
             nest(from: index + 1)
         }
-        if let from = entry.from {
-            return AnyView(stack.curtained(until: from))
+        if let from = stages[index].from {
+            return AnyView(stack.mask { Curtain(opensAt: from) })
         }
         return AnyView(stack)
     }
 }
 
-/* Clear until `opensAt`, then solid. It is a progress bar set to run over
-   the instant before that moment: the system fills such a bar in by itself,
-   which makes it one of the two things a Live Activity can animate (the
-   other is a countdown). Made far larger than any panel and used as a mask,
-   the empty bar hides what is behind it and the full bar shows it.
+/* A progress bar set to run over the instant before `at`, far larger than
+   any panel: the system fills such a bar in by itself, which makes it one
+   of the two things a Live Activity can animate (the other is a countdown).
+   Shutter and Curtain are each one of these, put to a different use.
 
    The Lock Screen is not redrawn continuously; it is redrawn when a
    countdown ticks, and the one that matters is the last tick of the block
-   before, which lands on `opensAt` itself. So the run is a twentieth of a
-   second and ends there: that redraw finds the bar already full. Run after
-   the moment instead, it caught the bar part-way and left the panel half
+   before, which lands on `at` itself. So the run is a twentieth of a second
+   and ends there: that redraw finds the bar already run. Run after the
+   moment instead, it caught the bar part-way and left the panel half
    uncovered until the next tick — which, once the day's last countdown had
    finished, was a long time coming. */
-struct Curtain: View {
-    let opensAt: Date
+struct InstantBar: View {
+    let at: Date
+    /// Full until then, and empty after.
+    var empties = false
+    var mirrored = false
 
     var body: some View {
-        ProgressView(timerInterval: opensAt.addingTimeInterval(-0.05)...opensAt, countsDown: false) {
+        ProgressView(timerInterval: at.addingTimeInterval(-0.05)...at, countsDown: empties) {
             EmptyView()
         } currentValueLabel: {
             EmptyView()
         }
         .progressViewStyle(.linear)
-        .tint(.white)
         /* A few points tall with round ends: stretched this far, the part
            left in view is a plain rectangle. It is laid out small and then
            scaled, rather than laid out wide, because of what it costs: the
            system saves a Live Activity's drawing to a file with a size limit,
-           a bar's share of that file grows with the width it is laid out at,
-           and a school day needs sixty of them. At 900 points wide the day
-           came to 2.2 MB and was refused. */
+           and a bar's share of that file grows with the width it is laid out
+           at. At 900 points wide the day came to 2.2 MB and was refused. */
         .frame(width: 24)
-        .scaleEffect(x: 40, y: 150, anchor: .center)
+        .scaleEffect(x: mirrored ? -40 : 40, y: 150, anchor: .center)
         .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         .clipped()
     }
 }
 
+/* Black over the panel it is in until `at`, and nothing after — or, with
+   `opens` false, the other way about. A panel has one of each: shut until
+   its block begins, and shut again once the next one has. A shut panel is
+   black all over, and the panels are added together, light on light, so the
+   shut ones add nothing and the open one is all there is to see.
+
+   The bar is black and is laid on as hard light, under which black makes
+   black of whatever is behind it. That is the full part of the bar. The
+   empty part is not clear — the system draws a faint track there, a quarter
+   solid, and nothing that can be set on the bar removes it — but the track
+   is the system's mid grey, and hard light leaves alone whatever a mid grey
+   is laid on. (It is not quite the middle: 120, 120, 128 of 255, so the red
+   and green behind each shutter come out a fiftieth down. `restored` puts
+   that back.)
+
+   It is done this way for the Lock Screen's 120 frames a second. It was
+   done with masks first: every panel behind four of them to be rid of that
+   track, and all the later panels behind those again, seventy deep by the
+   end of a day. A mask is drawn apart and then laid on, each one, every
+   time the panel moves, and with that many, scrolling the notifications
+   under a school day fell to 60. This way a panel is drawn apart once, and
+   none is inside another.
+
+   What it costs is room in the file the drawing is saved to (see
+   BlockPanel): a bar that is seen is three times the weight of one that is
+   only a mask. */
+struct Shutter: View {
+    let at: Date
+    let opens: Bool
+
+    var body: some View {
+        /* One that opens is turned to face the other way, so that it draws
+           back from the same side the one shutting the panel before comes
+           in from, and the two panels are never both on show. */
+        InstantBar(at: at, empties: opens, mirrored: opens)
+            .tint(.black)
+            .blendMode(.hardLight)
+    }
+
+    /// Goes over all the shuttered panels together. Colour dodge divides
+    /// what is behind by what this leaves of one: the fiftieth, twice over,
+    /// that the open panel's two shutters took off its red and green. (The
+    /// first panel of a day and the last have one shutter, and so come out
+    /// a fiftieth up.)
+    static var restored: some View {
+        Color(red: 0.04, green: 0.04, blue: 0)
+            .blendMode(.colorDodge)
+    }
+}
+
 extension View {
-    /* The empty part of a bar is not quite clear — the system draws a faint
-       track there, which measured at a fifth to a third solid, and nothing
-       that can be set on the bar removes it. One curtain would leave the
-       panel behind it ghosted over the one showing. Each further curtain
-       multiplies what gets through by that fraction again, while the filled
-       bar, which is fully solid, stays so. With the panels nested (see
-       TimeSwitch) only the next one is in question; at three curtains it
-       was still a faint shadow behind the one showing, and at four it is
-       gone. Each curtain is a bar, and each bar has its cost: see
-       BlockPanel. (Raising the contrast would be the
-       obvious way to do this with one, but a colour filter is not applied to
-       a bar the system is animating.) */
-    func curtained(until date: Date) -> some View {
-        mask { Curtain(opensAt: date) }
-            .mask { Curtain(opensAt: date) }
-            .mask { Curtain(opensAt: date) }
-            .mask { Curtain(opensAt: date) }
+    /// On show from `from` until `until`, and black the rest of the time;
+    /// nil is no shutter on that side.
+    func shuttered(from: Date?, until: Date?) -> some View {
+        ZStack {
+            self
+            if let from { Shutter(at: from, opens: true) }
+            if let until { Shutter(at: until, opens: false) }
+        }
+        .compositingGroup()
+        .blendMode(.plusLighter)
+    }
+}
+
+/* Clear until `opensAt`, then solid: a mask for the panel that comes in
+   then. The bar is white on black, and how bright the picture is becomes
+   how solid the mask is. Its empty part is not black — there is the track,
+   which would let a ghost of the hidden panel through — so before that the
+   picture is darkened and its contrast raised, until everything less than
+   about nine tenths white is black and the white is white still.
+
+   The line is drawn that high for the Mac, whose menu bar shows the
+   island's two ends when the phone is near. It was first drawn at a half,
+   with a colour burn, which is all the phone's own track needs (it is an
+   eighth as bright as the bar); and on the Mac every stage of the day
+   showed at once, each through the one before. What the Mac draws for a
+   track has not been seen by itself, only that it came through that.
+
+   (This was once four bars, each a mask inside the last, since each
+   multiplied the track's quarter by a quarter again. A colour filter set on
+   the bar itself does nothing useful, which is why that was done; set on
+   the bar and the black behind it taken together, it does.) */
+struct Curtain: View {
+    let opensAt: Date
+
+    var body: some View {
+        ZStack {
+            Color.black
+            InstantBar(at: opensAt)
+                .tint(.white)
+        }
+        .compositingGroup()
+        .brightness(-0.38)
+        .contrast(16)
+        .luminanceToAlpha()
     }
 }
 
@@ -304,7 +397,7 @@ struct LockScreenPanel: View {
     let day: ClassActivityAttributes
 
     var body: some View {
-        TimeSwitch(stages: day.stages) { stage in
+        TimeSwitch(stages: day.stages, by: .shutters) { stage in
             Group {
                 switch stage {
                 case .before: BeforePanel(day: day, counts: false)
@@ -328,19 +421,28 @@ struct LockScreenPanel: View {
 
        a countdown        about 38 KB (51 KB in a rounded, fixed-width face)
        a progress bar     about  9 KB
-       a curtain's bar    about  3 KB, and every panel has four
+       a shutter          about  9 KB, and a panel on the Lock Screen has two
+       a curtain          about  5 KB, and a panel in the island has one
        the rest of a panel   20 KB or so
+
+   (A shutter is a progress bar. So is a curtain, but a bar that is only a
+   mask is saved as 3 KB of the 5.)
 
    A school day is sixteen or seventeen panels. Drawn in full on the Lock
    Screen and again in the island, with a countdown in each, it came to
-   2.2 MB. So: the countdowns are in the plain face; the five- and
-   ten-minute breaks do without one (their bar still runs); the wait before
-   the first bell is only counted down for its last two hours; and the
-   island counts to the end of a class, not of each period, so that a
-   double period is one countdown there and not two. The same drawing saves about an eighth larger on
-   iOS 27 than on iOS 26, so it is iOS 27's figure that has to fit. */
+   2.2 MB. So: the countdowns are in the plain face; the wait before the
+   first bell is only counted down for its last two hours; and the island
+   counts to the end of a class, not of each period, so that a double
+   period is one countdown there and not two, and gives the five- and
+   ten-minute breaks none. On the Lock Screen those breaks did without one
+   too, and said "10 min" for the whole ten minutes. They count down there
+   now: a countdown that runs so short a time is about 23 KB, and the five
+   breaks of the fullest day came to 114 KB. The same drawing saves about
+   an eighth larger on iOS 27 than on iOS 26, so it is iOS 27's figure that
+   has to fit. */
 extension ClassActivityAttributes.Block {
-    /// A break too short to be worth a countdown of its own.
+    /// A break too short for the island to count down: there it names the
+    /// class to come and says when that starts.
     var isShortBreak: Bool { !isLesson && end.timeIntervalSince(start) <= 15 * 60 }
 }
 
@@ -384,17 +486,11 @@ struct BlockPanel: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                if block.isShortBreak {
-                    Text("\(Int(block.end.timeIntervalSince(block.start) / 60)) min")
-                        .font(.countdown(30))
-                        .foregroundStyle(tint)
-                } else {
-                    Text(timerInterval: block.start...block.end, countsDown: true)
-                        .font(.countdown(30))
-                        .multilineTextAlignment(.trailing)
-                        .foregroundStyle(tint)
-                        .frame(width: 110, alignment: .trailing)
-                }
+                Text(timerInterval: block.start...block.end, countsDown: true)
+                    .font(.countdown(30))
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(tint)
+                    .frame(width: 110, alignment: .trailing)
             }
             ProgressView(timerInterval: block.start...block.end, countsDown: false) {
                 EmptyView()
@@ -521,11 +617,11 @@ struct AfterPanel: View {
 // MARK: - Apple Watch
 
 /* What a paired Apple Watch shows of the Live Activity. The phone's panels
-   can't be used there: they change by hiding one another behind curtains,
-   and on the watch the curtains hide nothing — worn before the first bell,
-   it showed the last panel, "That's the day". A bar run by the clock is drawn
-   finished there whatever the time is: a bar for the day, tried next, was
-   full at half past two. The one thing the watch does keep moving is a
+   can't be used there. Tried when they were all hidden by curtains (see
+   Curtain), the curtains hid nothing on the watch — worn before the first
+   bell, it showed the last panel, "That's the day". A bar run by the clock
+   is drawn finished there whatever the time is: a bar for the day, tried
+   next, was full at half past two. The one thing the watch does keep moving is a
    countdown.
 
    A strip of the whole day with its hours was tried after that, and was
