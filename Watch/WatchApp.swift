@@ -61,6 +61,8 @@ struct TimetableWatchApp: App {
         let until = await ClassReminders.schedule()
         DeviceLink.shared.report(remindersUntil: until)
         WidgetCenter.shared.reloadAllTimelines()
+        // and say afresh which hours it is worth a look in (WatchProvider.relevance)
+        WidgetCenter.shared.invalidateRelevance(ofKind: "NowNextWatch")
         WKApplication.shared().scheduleBackgroundRefresh(withPreferredDate: .now.addingTimeInterval(12 * 3600),
                                                          userInfo: nil) { _ in }
     }

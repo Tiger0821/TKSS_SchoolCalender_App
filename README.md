@@ -199,14 +199,26 @@ the day on a watch whose phone has never had Timetable opened.
   and come back to, the app is at the day the clock leads to again.
 - **The widget** (Smart Stack › Edit › add Timetable) says the class that is
   on with its room and the time it has left, and the class after it with its
-  room. From two hours before the first bell it says "Good morning" — in
+  room. The class after is the first to start once the one on now is over,
+  so the second half of a double period is not "next". Where that line is
+  too long for the tile it is the time the class starts that is left out and
+  not its room, and in the last class of the day the line says that it is.
+  From two hours before the first bell it says "Good morning" — in
   pixels, like the sky (`PixelText.swift` draws the letters as squares) —
   over the first class, a small countdown to it, and the class after; for the
   last half hour the countdown takes the greeting's line and is the largest
   thing on the tile. Over the same hours, and until the last bell, it tells
-  the Smart Stack it is worth bringing to the top. It is a widget and not
-  the Live Activity because a widget is given a timeline, and so can change
-  at every bell.
+  the Smart Stack it is worth bringing to the top, and it says so ahead of
+  time for the fortnight coming. It is a widget and not the Live Activity
+  because a widget is given a timeline, and so can change at every bell.
+- **The tile a watch shows by itself** during the school day is not that
+  widget. It is the phone's Live Activity sent across — the day's name and
+  how long school has left, as said under "On the Lock Screen" above — and the
+  system puts it at the top of the Smart Stack; an app is given no say in
+  that. To have the class that is on there instead, add the widget once
+  (open the Smart Stack, touch and hold, "+", Timetable) and pin it, and to
+  be rid of the other tile turn Timetable off in the Watch app on the phone
+  under Smart Stack › Live Activities.
 
 ## Reminders
 
