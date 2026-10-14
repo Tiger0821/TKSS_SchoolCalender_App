@@ -1,3 +1,4 @@
+import RelevanceKit
 import SwiftUI
 import WidgetKit
 
@@ -31,14 +32,20 @@ struct WatchEntry: TimelineEntry {
         snapshot = Timetable.snapshot(at: date)
     }
 
+    /// The hours of `day` in which the widget has something to say: from the
+    /// greeting until the last bell. Nil on a day with no school.
+    static func hours(of day: Date) -> ClosedRange<Date>? {
+        let classes = Timetable.day(of: day)
+        guard let first = classes.first, let last = classes.last else { return nil }
+        return first.start.addingTimeInterval(-greetingLead)...last.end
+    }
+
     /* What the Smart Stack goes by in choosing which widget to bring to the
        top: from the greeting until the last bell this one has something to
        say, and the rest of the time it has not. The stack does the choosing;
        this is only the widget's word on when it is worth a look. */
     var relevance: TimelineEntryRelevance? {
-        let day = Timetable.day(of: date)
-        guard let first = day.first, let last = day.last,
-              date >= first.start.addingTimeInterval(-Self.greetingLead), date < last.end else {
+        guard let hours = Self.hours(of: date), date >= hours.lowerBound, date < hours.upperBound else {
             return TimelineEntryRelevance(score: 0)
         }
         return TimelineEntryRelevance(score: 100)
@@ -75,6 +82,26 @@ struct WatchProvider: TimelineProvider {
         let entries = ([now] + dates.sorted()).map(WatchEntry.init)
         completion(Timeline(entries: entries, policy: .atEnd))
     }
+
+    /* The same hours again, said ahead of time and for a fortnight of school
+       days at once. An entry's relevance (above) is only heard once the
+       widget is being drawn; this is what the Smart Stack has to plan by,
+       and each class is on the timetable, which is the kind of time it is
+       told these are. The watch app has it asked again whenever it settles
+       (WatchApp), so the fortnight keeps moving on. */
+    func relevance() async -> WidgetRelevance<Void> {
+        Timetable.reload()
+        let now = Date.now
+        var day = Timetable.calendar.startOfDay(for: now)
+        var spans: [WidgetRelevanceAttribute<Void>] = []
+        for _ in 0..<14 {
+            if let hours = WatchEntry.hours(of: day), hours.upperBound > now {
+                spans.append(WidgetRelevanceAttribute(context: .date(range: hours, kind: .scheduled)))
+            }
+            day = Timetable.calendar.date(byAdding: .day, value: 1, to: day)!
+        }
+        return WidgetRelevance(spans)
+    }
 }
 
 struct NowNextWatchWidget: Widget {
@@ -96,8 +123,13 @@ struct NowNextWatchView: View {
     var body: some View {
         let snapshot = entry.snapshot
         let current = snapshot.current
-        // what follows: the next class that is not the one on now carrying on
-        let next = snapshot.upcoming.first { $0.segment.title != current?.segment.title || !(current?.segment.isLesson ?? false) }
+        /* What follows: the first class to start once the one on now is
+           over, which for a double period is after its second half. It was
+           once the first class of another name, and that passed over a class
+           met again later in the day: in IB Core before lunch, with IB Core
+           after it, "Next" was the class at half past two. */
+        let over = current.map { classEnd(of: $0, in: snapshot.day) } ?? entry.date
+        let next = snapshot.upcoming.first { $0.start >= over }
         if family == .accessoryInline {
             inline(current: current, next: next)
         } else {
@@ -118,20 +150,27 @@ struct NowNextWatchView: View {
         VStack(alignment: .leading, spacing: 1) {
             if let current {
                 now(current, until: classEnd(of: current, in: snapshot.day), scale: scale)
-                if let next { line(next, lead: "Next", scale: scale) }
+                if let next {
+                    line(next, lead: "Next", scale: scale, roomFirst: true)
+                } else {
+                    // as the phone's Lock Screen says it, so the line is not just missing
+                    Text("Last class today")
+                        .font(.system(size: 12 * scale))
+                        .foregroundStyle(.secondary)
+                }
             } else if Timetable.profile == nil {
                 Text("Open Timetable to choose your classes")
                     .font(.system(size: 13 * scale, weight: .semibold))
             } else if let next, snapshot.isToday {
                 // before the first bell: nearer to it, more is made of it
                 let wait = next.start.timeIntervalSince(entry.date)
-                let then = snapshot.upcoming.first { $0.start > next.start && $0.segment.title != next.segment.title }
+                let then = snapshot.upcoming.first { $0.start >= classEnd(of: next, in: snapshot.day) }
                 if wait <= WatchEntry.countdownLead {
                     imminent(next, then: then, scale: scale)
                 } else if wait <= WatchEntry.greetingLead {
                     morning(next, then: then, scale: scale)
                 } else {
-                    line(next, lead: snapshot.dayLabel, scale: scale)
+                    line(next, lead: snapshot.dayLabel, scale: scale, alone: true)
                 }
             } else if let holiday = snapshot.holidayToday {
                 // a weekday off for a holiday: that, and under it the next class
@@ -146,7 +185,7 @@ struct NowNextWatchView: View {
                     .widgetAccentable()
                 if let next { line(next, lead: snapshot.dayLabel, scale: scale) }
             } else if let next {
-                line(next, lead: snapshot.dayLabel, scale: scale)
+                line(next, lead: snapshot.dayLabel, scale: scale, alone: true)
             } else {
                 Text("No classes")
                     .font(.system(size: 15 * scale, weight: .semibold))
@@ -168,6 +207,8 @@ struct NowNextWatchView: View {
                     .font(.system(size: 12 * scale, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    // a long room beside a long name is set smaller sooner than cut short
+                    .minimumScaleFactor(0.75)
             }
         }
     }
@@ -225,7 +266,7 @@ struct NowNextWatchView: View {
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: 58 * scale, alignment: .trailing)
         }
-        if let then { line(then, lead: "Next", scale: scale) }
+        if let then { line(then, lead: "Next", scale: scale, roomFirst: true) }
     }
 
     /* The last half hour before the first bell: the greeting has been said,
@@ -240,20 +281,48 @@ struct NowNextWatchView: View {
             countdown(to: item.start, size: 20 * scale, width: 64 * scale, alignment: .leading)
         }
         title(item.segment, scale: scale)
-        if let then { line(then, lead: "Next", scale: scale) }
+        if let then { line(then, lead: "Next", scale: scale, roomFirst: true) }
     }
 
-    /// A class to come on one line: when it starts, its name, and where.
-    private func line(_ item: TimedSegment, lead: String, scale: CGFloat) -> some View {
+    /* A class to come on one line: when it starts, its name, and where.
+
+       The room is at the end of the line, so it is the room that is cut
+       short when the line is too long — and under a class that is on, the
+       room is what the line is looked at for ("Next 12:50 Comp. Sc. ·
+       6F-DP VA St…" was all it had to say of a room up another floor). So
+       there the time is what gives way (`roomFirst`): the line is tried
+       whole, then a little smaller, and then without its time.
+
+       A line that stands for a day to come keeps its time, which is the
+       news in it. Where it has the tile to itself (`alone`) and is too long
+       for one line it is set as two, the time over the class, sooner than
+       made small with the rest of the tile standing empty. */
+    private func line(_ item: TimedSegment, lead: String, scale: CGFloat, roomFirst: Bool = false, alone: Bool = false) -> some View {
         let segment = item.segment
-        let place = segment.place.isEmpty ? "" : " · \(segment.place)"
-        let when = Text(verbatim: "\(lead) \(Timetable.hhmm(item.start)) ").foregroundStyle(.secondary)
         let name = Text(verbatim: segment.shortTitle).fontWeight(.semibold)
-        let room = Text(verbatim: place).foregroundStyle(.secondary)
-        return Text("\(when)\(name)\(room)")
-            .font(.system(size: 12 * scale))
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
+        let room = Text(verbatim: segment.place.isEmpty ? "" : " · \(segment.place)").foregroundStyle(.secondary)
+        func when(_ time: Bool, gap: String = " ") -> Text {
+            Text(verbatim: time ? "\(lead) \(Timetable.hhmm(item.start))\(gap)" : "\(lead)\(gap)").foregroundStyle(.secondary)
+        }
+        return ViewThatFits(in: .horizontal) {
+            Text("\(when(true))\(name)\(room)").font(.system(size: 12 * scale)).lineLimit(1)
+            Text("\(when(true))\(name)\(room)").font(.system(size: 10.5 * scale)).lineLimit(1)
+            if roomFirst {
+                Text("\(when(false))\(name)\(room)").font(.system(size: 12 * scale)).lineLimit(1)
+            }
+            // and when it goes in none of those ways, the last is made to
+            if alone {
+                VStack(alignment: .leading, spacing: 1) {
+                    when(true, gap: "")
+                    Text("\(name)\(room)")
+                }
+                .font(.system(size: 12 * scale))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            } else {
+                Text("\(when(!roomFirst))\(name)\(room)").font(.system(size: 12 * scale)).lineLimit(1).minimumScaleFactor(0.75)
+            }
+        }
     }
 
     @ViewBuilder

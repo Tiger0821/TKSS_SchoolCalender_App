@@ -106,16 +106,7 @@ struct Snapshot: Sendable {
     var focus: TimedSegment? { current ?? upcoming.first }
 
     /// "Today", "Tomorrow", or the weekday the shown day falls on.
-    var dayLabel: String {
-        let cal = Timetable.calendar
-        if cal.isDate(dayDate, inSameDayAs: date) { return "Today" }
-        if let tomorrow = cal.date(byAdding: .day, value: 1, to: date), cal.isDate(dayDate, inSameDayAs: tomorrow) {
-            return "Tomorrow"
-        }
-        // a week or more off, as after Lunar New Year, the weekday alone would be taken for this week's
-        let days = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: dayDate)).day ?? 0
-        return days < 7 ? dayDate.formatted(.dateTime.weekday(.wide)) : Holidays.short(dayDate)
-    }
+    var dayLabel: String { Timetable.dayLabel(of: dayDate, at: date) }
 
     /// The holiday today is off school for, when it is.
     var holidayToday: Holiday? {
@@ -443,6 +434,19 @@ enum Timetable {
         let day = cal.startOfDay(for: date)
         let back = (cal.component(.weekday, from: day) + 5) % 7
         return cal.date(byAdding: .day, value: -back, to: day)!
+    }
+
+    /// What `day` is called at `now`: "Today", "Tomorrow", or the weekday it
+    /// falls on.
+    static func dayLabel(of day: Date, at now: Date) -> String {
+        let cal = calendar
+        if cal.isDate(day, inSameDayAs: now) { return "Today" }
+        if let tomorrow = cal.date(byAdding: .day, value: 1, to: now), cal.isDate(day, inSameDayAs: tomorrow) {
+            return "Tomorrow"
+        }
+        // a week or more off, as after Lunar New Year, the weekday alone would be taken for this week's
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: day)).day ?? 0
+        return days < 7 ? day.formatted(.dateTime.weekday(.wide)) : Holidays.short(day)
     }
 
     /// 0 for Week 1, 1 for Week 2.

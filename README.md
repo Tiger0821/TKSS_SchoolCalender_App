@@ -99,7 +99,8 @@ It changes with every bell by itself.
 
 The island counts to the end of the class, so through a double period it is
 one countdown; the Lock Screen counts to the end of the period. In a short
-break the island names the class to come and the time it starts.
+break the Lock Screen names the class to come and counts down to it, to the
+second; the island names it and gives the time it starts.
 
 On a paired Apple Watch the Live Activity shows in the Smart Stack as the
 day's name and a countdown of how long school has left, and no more. (The
@@ -134,24 +135,51 @@ on in Settings to see it sooner.
 A Live Activity can't be given a timeline the way a widget can: what it shows
 only changes when the app updates it or a server pushes to it, and during the
 school day there is neither. So the whole day goes in when it starts, and the
-view is every block's panel stacked up, each hidden behind a mask that the
-clock opens — a progress bar set to run out at the block's first second, which
-is one of the two things the system will animate by itself. `TimeSwitch` and
-`Curtain` in `Widget/ClassLiveActivity.swift` are that; the comments there say
-what it took to make it hold. The panels are nested, each behind the masks of
-all the ones before it, because a closed mask is not quite opaque and side by
-side sixteen of them let a ghost of the afternoon through.
+view is every block's panel stacked up, all but one of them hidden by the
+clock — by a progress bar set to run out at the block's first second, which
+is one of the two things the system will animate by itself. `TimeSwitch` in
+`Widget/ClassLiveActivity.swift` is that; the comments there say what it took
+to make it hold.
+
+There are two ways of hiding, and each is used where what it costs matters
+least. The empty part of a bar is not clear: the system draws a faint track
+there, a quarter solid, so a bar used plainly as a mask lets a ghost of the
+hidden panel through.
+
+- On the Lock Screen each panel has two black bars over it (`Shutter`), one
+  that lifts when its block begins and one that falls when the next does.
+  They are laid on as hard light, under which the full, black part of a bar
+  blacks the panel out and the mid-grey track leaves it as it was; and the
+  panels are added together, so the blacked-out ones add nothing. Each panel
+  is drawn apart once. That is for the frame rate: the first way of doing
+  this put every panel behind four masks, and all the later panels behind
+  those again, and scrolling the Lock Screen's notifications under some
+  seventy masks fell from 120 frames a second to 60.
+- In the island each panel is behind one mask (`Curtain`): the bar in white
+  on black, its contrast raised until the track is black too, and its
+  brightness used as the mask. A bar that is only a mask is a third of the
+  weight of one that is seen, in the file below, and the island's panels are
+  small enough for a mask each to cost nothing worth counting. The island's
+  two ends are also what a Mac shows in its menu bar when the phone is near,
+  and the Mac does not draw a bar quite as the phone does: look there too
+  after changing this.
 
 The limit to design within: the system saves a Live Activity's drawing to a
 file and silently shows nothing if it is over 2,000,000 bytes (1,953 KB), and
 what fills it is countdowns (about 40 KB each) and bars. iOS 27 saves the
 same drawing about an eighth larger than iOS 26, so it is the one to measure
-on. For 11B's ten days, measured on 6 Oct 2026:
+on. For 11B's ten days, measured on iOS 27.0 on 14 Oct 2026:
 
-| | iOS 26.5 | iOS 27.0 |
-|---|---|---|
-| lightest day (13 blocks) | 1,223 KB | 1,436 KB |
-| fullest day (16 blocks) | 1,457 KB | 1,734 KB |
+| | iOS 27.0 |
+|---|---|
+| lightest day (13 blocks) | 1,464 KB |
+| fullest day (16 blocks) | 1,777 KB |
+
+That is with the short breaks counting down on the Lock Screen, which added
+some 23 KB a break (the fullest day has five), and with the shutters and
+curtains as above, which between them weigh a little less than the masks
+did. iOS 26.5 has not been weighed since either; before, on 6 Oct, the same
+two days were 1,223 and 1,457 KB there.
 
 A day of more than sixteen blocks drops the island's minutes, which is some
 300 KB lighter (`affordsMinutes`). Anything added to the Live Activity should be weighed the
@@ -189,16 +217,36 @@ the day on a watch whose phone has never had Timetable opened.
   class with the time it starts and its room, the breaks between, the class
   that is on outlined with its time left, and the same pixel sky behind. No
   date, no clock, no teachers.
+- **The days ahead** are a swipe away: from right to left goes on to the next
+  school day, and the other way comes back. A day arriving is felt and seen
+  together: a click on the wrist, and at the same moment its name gives a
+  start and its rows come in from the side the swipe came from, one behind
+  another. There are ten days, which is every
+  day of both weeks. Each says at its top which day it is and whether it is
+  in the odd week or the even one (the timetable's Week 1 and Week 2). Left
+  and come back to, the app is at the day the clock leads to again.
 - **The widget** (Smart Stack › Edit › add Timetable) says the class that is
   on with its room and the time it has left, and the class after it with its
-  room. From two hours before the first bell it says "Good morning" — in
+  room. The class after is the first to start once the one on now is over,
+  so the second half of a double period is not "next". Where that line is
+  too long for the tile it is the time the class starts that is left out and
+  not its room, and in the last class of the day the line says that it is.
+  From two hours before the first bell it says "Good morning" — in
   pixels, like the sky (`PixelText.swift` draws the letters as squares) —
   over the first class, a small countdown to it, and the class after; for the
   last half hour the countdown takes the greeting's line and is the largest
   thing on the tile. Over the same hours, and until the last bell, it tells
-  the Smart Stack it is worth bringing to the top. It is a widget and not
-  the Live Activity because a widget is given a timeline, and so can change
-  at every bell.
+  the Smart Stack it is worth bringing to the top, and it says so ahead of
+  time for the fortnight coming. It is a widget and not the Live Activity
+  because a widget is given a timeline, and so can change at every bell.
+- **The tile a watch shows by itself** during the school day is not that
+  widget. It is the phone's Live Activity sent across — the day's name and
+  how long school has left, as said under "On the Lock Screen" above — and the
+  system puts it at the top of the Smart Stack; an app is given no say in
+  that. To have the class that is on there instead, add the widget once
+  (open the Smart Stack, touch and hold, "+", Timetable) and pin it, and to
+  be rid of the other tile turn Timetable off in the Watch app on the phone
+  under Smart Stack › Live Activities.
 
 ## Reminders
 
