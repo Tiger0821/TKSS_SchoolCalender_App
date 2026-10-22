@@ -41,32 +41,42 @@ struct SkyStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: edit) {
-                HStack(spacing: 8) {
-                    Image(systemName: "person.crop.circle")
-                    Text(profile.name)
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
-                    Text(profile.form)
-                        .font(.footnote.weight(.bold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(.tint.opacity(0.35), in: .capsule)
-                }
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 38)
-                .contentShape(.capsule)
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .accessibilityLabel("\(profile.name), \(profile.form)")
-            .accessibilityHint("Changes your name, form and classes")
+            NameButton(profile: profile, edit: edit)
             if let weather {
                 WeatherReading(weather: weather, isDay: isDay)
             }
         }
         .frame(maxWidth: .infinity, minHeight: weather == nil ? nil : 112, alignment: .bottomLeading)
+    }
+}
+
+/// Whose timetable this is, a name and a form, on glass; tapped, it opens setup again.
+struct NameButton: View {
+    let profile: Profile
+    let edit: () -> Void
+
+    var body: some View {
+        Button(action: edit) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle")
+                Text(profile.name)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                Text(profile.form)
+                    .font(.footnote.weight(.bold))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(.tint.opacity(0.35), in: .capsule)
+            }
+            .font(.subheadline)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 38)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .accessibilityLabel("\(profile.name), \(profile.form)")
+        .accessibilityHint("Changes your name, form and classes")
     }
 }
 
@@ -355,7 +365,7 @@ struct DayPicker: View {
             ForEach(0..<2, id: \.self) { week in
                 HStack(spacing: 6) {
                     Text(Timetable.weekMarks[week])
-                        .font(.title3)
+                        .font(DayPicker.big ? .system(size: 14.5) : .title3)
                         .foregroundStyle(.secondary)
                         .frame(width: 24)
                         .accessibilityHidden(true)
@@ -369,6 +379,14 @@ struct DayPicker: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 
+    /// Larger on a Mac, where the picker is a window's half and not a
+    /// phone's width, and the days read small across it.
+    #if os(macOS)
+    static let big = true
+    #else
+    static let big = false
+    #endif
+
     private func dayButton(_ day: Int) -> some View {
         let week = day / 5, weekday = day % 5
         let isShown = day == shown
@@ -380,12 +398,12 @@ struct DayPicker: View {
         } label: {
             VStack(spacing: 3) {
                 Text(week == 0 ? "\(weekday + 1)" : Timetable.dayNames[weekday])
-                    .font(.subheadline.weight(isShown ? .bold : .regular))
+                    .font((Self.big ? Font.system(size: 14.5) : .subheadline).weight(isShown ? .bold : .regular))
                 Circle()
                     .fill(day == today ? Color.yellow : .clear)
-                    .frame(width: 5, height: 5)
+                    .frame(width: Self.big ? 6 : 5, height: Self.big ? 6 : 5)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(maxWidth: .infinity, minHeight: Self.big ? 46 : 44)
             // a day off is in red, as a calendar prints one
             .foregroundStyle(holiday != nil ? Color.red : isShown ? Color.primary : .secondary)
             .background {
@@ -430,18 +448,28 @@ struct DayCard: View {
     let now: Date
     let dayOff: DayOff?
     @Binding var picked: Int?
+    /// How far the card has gone up under the Mac's header: its title stays
+    /// at the top of what is left, and the lessons go on up under the title.
+    @Environment(\.tucked) private var tucked
+    @State private var height: CGFloat = 0
 
     private static let weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
     var body: some View {
+        // the title rides down the card as it goes under, until there is only room for the title
+        let pinned = max(0, min(tucked, height - 72))
         VStack(alignment: .leading, spacing: 6) {
             header
+                .offset(y: pinned)
+                .zIndex(1)
             DayList(day: day, live: day == today, now: now, dayOff: dayOff)
+                .mask(alignment: .top) { Rectangle().padding(.top, pinned) }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
     }
 
     /// Which day the list underneath is: "Tomorrow · Monday · Week 2", with
@@ -479,6 +507,12 @@ struct DayCard: View {
         .frame(minHeight: 44)
         .padding(.horizontal, 12)
     }
+}
+
+extension EnvironmentValues {
+    /// How far a box has gone up under the header that the Mac's page tucks
+    /// its boxes under: nought on the phone, whose page scrolls plainly.
+    @Entry var tucked: CGFloat = 0
 }
 
 extension Color {
@@ -648,13 +682,29 @@ struct RowMetrics: DynamicProperty {
     @ScaledMetric(relativeTo: .subheadline) var gap: CGFloat = 12
 }
 
+/// A class in the day's list. Clicked, it shows the class's homework.
 struct LessonRow: View {
     let segment: Segment
     let isNow: Bool
     let minutesLeft: Int
     var metrics = RowMetrics()
+    @State private var showsHomework = false
 
     var body: some View {
+        Button {
+            showsHomework = true
+        } label: {
+            row
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showsHomework) {
+            HomeworkList(segment: segment, now: .now)
+        }
+        .accessibilityHint("Shows its homework")
+    }
+
+    private var row: some View {
         HStack(alignment: .top, spacing: metrics.gap) {
             VStack(alignment: .trailing, spacing: 1) {
                 Text(Timetable.hhmm(segment.start))
@@ -685,10 +735,13 @@ struct LessonRow: View {
                 }
             }
             Spacer(minLength: 0)
-            if isNow {
-                Text("\(minutesLeft) min")
-                    .font(.footnote.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(segment.tint)
+            VStack(alignment: .trailing, spacing: 6) {
+                if isNow {
+                    Text("\(minutesLeft) min")
+                        .font(.footnote.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(segment.tint)
+                }
+                HomeworkBadge(segment: segment, tint: segment.tint)
             }
         }
         .padding(.vertical, 10)

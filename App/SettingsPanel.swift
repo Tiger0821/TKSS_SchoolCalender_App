@@ -51,6 +51,11 @@ struct SettingsPanel: View {
                         Text("With Timetable open once on a paired Apple Watch, the watch sends them and taps your wrist. Otherwise the phone does, and passes them to the watch while it is locked.")
                     }
 
+                    SettingsSection("ManageBac", symbol: "checklist") {
+                        ManageBacSettings()
+                        Text("Tap a class in the day's list to see its homework. Timetable reads what's set from your ManageBac, signed in as you.")
+                    }
+
                     SettingsSection("You", symbol: "person.crop.circle") {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {

@@ -50,10 +50,12 @@ options, the questions follow.
 - The next national holiday: whole days while it is more than a day away, then
   hours, minutes and seconds. The three after it are listed underneath.
 - A picker for any of the ten days in the cycle, and that day's timetable.
+  Tap a class in it for its homework.
+- Your homework from ManageBac, soonest first — see [Homework](#homework).
 - The weather outside, painted behind it all as pixel art — see
   [Weather](#weather).
 
-The four boxes — class, holiday, day picker, timetable — can be put in any
+The five boxes — class, holiday, day picker, timetable, homework — can be put in any
 order: touch and hold one until it lifts, drag it, and the others slide out of
 its way. Hold it near the top or bottom of the screen and the page scrolls
 under it, so a box can travel further than one screen. The order is remembered
@@ -259,17 +261,42 @@ the day on a watch whose phone has never had Timetable opened.
 widgets and the reminders are the phone's, and what the phone does on the
 Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
 
-- **The window** is the phone's page: the date and the time, your name and
-  the weather on the strip of sky, and under them the four boxes. While the
-  window is narrow they are one column, as on the phone; from 820 points wide
-  they go into two, the class and the holiday on the left and the picker and
-  the day on the right. The date and the sky stay where they are and the
-  boxes scroll up under them. The boxes can't be moved about here.
+- **The window** is the phone's page, its top laid out for a wide window.
+  Whose timetable it is is a person on glass in the middle of the header,
+  which opens setup. Under the pointer it stretches into a capsule with the
+  name and the form, on a spring as Apple's glass moves, the words coming up
+  through a blur, and the trackpad gives a tap as it opens; out of its far
+  end the gear for Settings comes away as a drop of glass of its own, the
+  two pulling apart as water does, and the person stays where it was
+  (`PersonButton`). It is quick to open and slow to close: a margin round
+  it still counts as over it, and it waits a moment after the pointer has
+  gone, so a pointer that overshoots the gear finds it still there. Under
+  the pointer the gear's drop swells a little, the gear turns once, and the
+  trackpad gives a tap. Beside it the day and the
+  weather face each other across the sky, line for line — the date large,
+  and the weekday and the clock under it, at the left; the temperature
+  large, and the conditions, the high and low and the place under it, at the
+  right — with the sun or the moon between them, all in white with a soft
+  halo. Scrolled, the boxes come up into the header and it gives way to
+  them, as the Weather app's does: the large lines fade and the header
+  gathers into one line, the date and the clock at the left and "24°C |
+  Drizzle" at the right. The boxes then go on up under it the way the
+  Weather app's cards do, not fading but cut off at the top: each one's top
+  edge stays just under the header, rounded as it was, and the box grows
+  shorter until it is gone (`TucksUnder`). The day's card keeps its title
+  at the top of what is left while its lessons slide up beneath it. Under the
+  header are the five boxes. While the window is narrow they are one column,
+  as on the phone; from 820 points wide they go into two of the same width,
+  the class, the holiday and the homework on the left and the picker and the
+  day on the right, so the gap between them runs down from the person in
+  the header. The date and the sky stay where they are and the boxes scroll up
+  under them. The boxes can't be moved about here. A class in the day's list,
+  clicked, shows its homework in a popover.
 - **Setup** is the phone's — in the window the first time, and over it after
-  that from your name under the clock or Settings › Change. The Mac keeps a
-  profile of its own, as the watch can: an app group does not reach from one
-  device to another, and the free team this is signed with has no iCloud to
-  carry it across. So the Mac is set up on its own.
+  that from the person at the top of the window or Settings › Change. The
+  Mac keeps a profile of its own, as the watch can: an app group does not
+  reach from one device to another, and the free team this is signed with
+  has no iCloud to carry it across. So the Mac is set up on its own.
 - **The menu bar** says what the Dynamic Island says: the class that is on
   and the minutes left of it ("Econ 14 min"), to the end of a double period; in
   a short break, and before the first bell, the class to come and the time it
@@ -303,6 +330,43 @@ its widget) — an iPhone app and a Mac app may share one — and the same app
 group, so the App IDs the team already has cover it; Xcode makes Mac profiles
 for them the first time, and registers the Mac. Those last seven days on the
 free team, as the phone's do, and the app has to be built again after that.
+
+## Homework
+
+Each class's homework comes from the school's ManageBac
+(kueishan.managebac.com). Tap or click a class in the day's list and what is
+set for it shows: each task due from today on, with when it is due (in red by
+the end of tomorrow), what kind it is ("Quiz", "Homework", 個人口試 IO), the
+first few lines of what it says, and an arrow that opens it in ManageBac. A
+class with something due in the week ahead has a small count at the end of its
+row. The **Homework** box lists the six due soonest across every class.
+
+- **Signing in** is on ManageBac's own page, in a sheet inside the app
+  (`ManageBacSignIn`): the password goes to ManageBac and the app never sees
+  it. Tick "Remember me for 30 days" on that page, or the session ends when
+  the app quits; after the thirty days the box says "Signed out" and asks
+  again. The iPhone and the Mac are each signed in on their own.
+- **Reading** is done from inside a ManageBac page, as the userscript's "Due
+  today" does it: the calendar page is opened out of sight with the session,
+  and from there the app fetches `/student/events.json` (every task, its due
+  time, its kind, and a link that names its class), reads the class names
+  from the page's sidebar, and takes the address of the "Subscribe to
+  Calendar" feed for the tasks' descriptions. Asked from outside the page,
+  with copies of the session's cookies, ManageBac sent every request to its
+  sign-in page. It looks again every ten minutes while the app is open, and
+  keeps what it read for next time.
+- **The calendar feed on its own** is not enough: it has each task's title,
+  due time and description, but not which class it is for. A third of one
+  student's tasks were due at the very minute one of their lessons began;
+  the rest could have been anyone's.
+- **Matching** ManageBac's classes ("Economics", "English LIterature", "HS G11
+  Guidance") to the timetable's ("DP Econ", "Eng Lit", the two Guidance
+  slots) goes by the subject in the name (`Homework.describes`). A revision
+  class has the homework of the class it is for. There is nothing to set:
+  every one of the thirteen classes of the first student to sign in found
+  its own.
+
+The school's address is `ManageBac.school` in `Page/ManageBac.swift`.
 
 ## Reminders
 
@@ -467,6 +531,9 @@ The widgets do not show the weather and still use no network.
 - `Page/` — what the phone and the Mac both put on the page, in
   `PageParts.swift`: date and clock, the sky strip, Now card, holiday card,
   the ten-day picker and the day's card. `SetupView.swift` is setup, for both.
+  `ManageBac.swift` signs in to ManageBac and reads the homework, and
+  `HomeworkViews.swift` shows it: a class's list, the Homework box, the
+  sign-in sheet and the rows in Settings.
 - `Tools/` — `update_timetable.py`, which rebuilds the rows from the school's
   published timetable, and `draw_icon.swift`, which draws the app's icon (a
   pixel owl in a red bow tie, on white, shaded and lifted in layers) into the

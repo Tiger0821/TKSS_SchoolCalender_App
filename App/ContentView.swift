@@ -3,7 +3,7 @@ import WidgetKit
 
 /// The boxes that can be moved around, in the order they come in.
 enum Box: String, CaseIterable {
-    case now, holiday, days, timetable
+    case now, holiday, days, timetable, homework
 
     /// A saved order, with anything missing from it put back at the end.
     static func order(from saved: String) -> [Box] {
@@ -42,6 +42,8 @@ struct ContentView: View {
     @State private var profile = Timetable.profile
     /// Setup again, to change the name, the form or the classes.
     @State private var editing = false
+    /// The homework read from ManageBac, and whether its sign-in page is up.
+    @Bindable private var homework = Homework.shared
     /// Whether the settings page is across the screen.
     @State private var settingsOpen = false
     /// While a finger is pulling it: how far across it is, 0 (away) to 1.
@@ -56,6 +58,7 @@ struct ContentView: View {
     }
 
     var body: some View {
+        let _ = homework.signingIn
         Group {
             if let profile {
                 GeometryReader { geo in
@@ -105,6 +108,9 @@ struct ContentView: View {
             } cancel: {
                 editing = false
             }
+        }
+        .sheet(isPresented: $homework.signingIn) {
+            ManageBacSignIn()
         }
     }
 
@@ -191,6 +197,7 @@ struct ContentView: View {
                         case .timetable:
                             DayCard(day: shown, today: today, snapshot: snapshot, now: now,
                                     dayOff: daysOff[shown], picked: $picked)
+                        case .homework: HomeworkCard(now: now)
                         }
                     }
                 }
@@ -243,14 +250,18 @@ struct ContentView: View {
             .preferredColorScheme(scene == nil ? nil : .dark)
         }
         .task {
-            // look again every couple of minutes; refresh decides whether it is time to fetch
+            // look again every couple of minutes; each refresh decides whether it is time to fetch
             while !Task.isCancelled {
                 await weather.refresh()
+                await Homework.shared.refresh()
                 try? await Task.sleep(for: .seconds(120))
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await weather.refresh() } }
+            if phase == .active {
+                Task { await weather.refresh() }
+                Task { await Homework.shared.refresh() }
+            }
         }
     }
 

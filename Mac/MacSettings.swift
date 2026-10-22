@@ -2,9 +2,11 @@ import ServiceManagement
 import SwiftUI
 
 /* Settings, as a Mac has them: a window of its own off the app menu (⌘,),
-   or the gear beside the clock. Whose timetable it is, the menu bar's class
-   and opening at login, the reminders, how to put the widgets on the
-   desktop, and where the timetable, the holidays and the weather come from. */
+   or the gear that comes out of the person at the top of the timetable's
+   window. Whose timetable it is, ManageBac for the homework, the menu
+   bar's class and opening at login, the reminders, how to put the widgets
+   on the desktop, and where the timetable, the holidays and the weather
+   come from. */
 struct MacSettings: View {
     @Environment(MacModel.self) private var model
     @Environment(\.openWindow) private var openWindow
@@ -30,7 +32,13 @@ struct MacSettings: View {
                         Text("Not set up yet")
                     }
                 }
-                Text("Your form, your classes and your clubs. Clicking your name under the clock opens this too. The Mac keeps its own: what is picked on the iPhone or the Apple Watch does not come across.")
+                Text("Your form, your classes and your clubs. Clicking the person at the top of the timetable's window opens this too. The Mac keeps its own: what is picked on the iPhone or the Apple Watch does not come across.")
+                    .settingsNote()
+            }
+
+            Section("ManageBac") {
+                ManageBacSettings()
+                Text("Click a class in the day's list to see its homework. Timetable reads what's set from your ManageBac, signed in as you.")
                     .settingsNote()
             }
 
@@ -88,6 +96,10 @@ struct MacSettings: View {
         .frame(width: 500)
         .frame(minHeight: 520, idealHeight: 720)
         .onAppear { opensAtLogin = SMAppService.mainApp.status == .enabled }
+        // ManageBac's sign-in page comes up over the timetable's window
+        .onChange(of: Homework.shared.signingIn) { _, signingIn in
+            if signingIn { openWindow(id: MacPage.window) }
+        }
     }
 }
 
