@@ -4,8 +4,7 @@ import SwiftUI
    says, said on the Mac. In a class it is the class's name and the minutes
    left of it ("Econ 14 min"), to the end of a double period where it is one.
    The name is the short one the page uses, not the island's few letters:
-   there is room for it here, and the island's run out at the subjects it
-   was made for.
+   there is room for it here.
    In a short break it names the class to come and the time it starts, and
    so it does before the first bell. Out of school hours it is only its mark.
 

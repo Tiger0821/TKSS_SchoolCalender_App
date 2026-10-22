@@ -170,18 +170,21 @@ The limit to design within: the system saves a Live Activity's drawing to a
 file and silently shows nothing if it is over 2,000,000 bytes (1,953 KB), and
 what fills it is countdowns (about 40 KB each) and bars. iOS 27 saves the
 same drawing about an eighth larger than iOS 26, so it is the one to measure
-on. For 11B's ten days, measured on iOS 27.0 on 14 Oct 2026:
+on. For 11B's ten days, measured on iOS 27.0 on 22 Oct 2026:
 
 | | iOS 27.0 |
 |---|---|
-| lightest day (13 blocks) | 1,464 KB |
-| fullest day (16 blocks) | 1,777 KB |
+| lightest day (13 blocks) | 1,469 KB |
+| fullest day (16 blocks) | 1,790 KB |
 
 That is with the short breaks counting down on the Lock Screen, which added
 some 23 KB a break (the fullest day has five), and with the shutters and
 curtains as above, which between them weigh a little less than the masks
-did. iOS 26.5 has not been weighed since either; before, on 6 Oct, the same
-two days were 1,223 and 1,457 KB there.
+did. It is also with each subject's own few letters in the island. Chem,
+Bio, Eng A-2 and others had all been "Club", so two of them in a row were
+one stage of the label; telling them apart put a stage back on four of the
+ten days, some 5 to 14 KB each. iOS 26.5 has not been weighed since
+either; before, on 6 Oct, the same two days were 1,223 and 1,457 KB there.
 
 A day of more than sixteen blocks drops the island's minutes, which is some
 300 KB lighter (`affordsMinutes`). Anything added to the Live Activity should be weighed the
