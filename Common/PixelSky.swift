@@ -43,35 +43,64 @@ struct Pixel: Equatable {
     }
 }
 
-/// The frame the sky is painted into. Writes that land off its edges are dropped.
+/* The frame the sky is painted into, in the sky's own pixels. Under each
+   of those are two finer ones side by side, so that a cloud can stand half
+   a pixel over and drift on in steps half as long (`blendHalf`): whole
+   pixels, a step at a time, a slow cloud stood still and then hopped. Only
+   across, as the clouds only move across; finer both ways was four times
+   the pixels to hand the screen thirty times a second, for nothing anyone
+   would see. Everything else is painted a whole pixel at a time, as before.
+   Writes that land off its edges are dropped. */
 struct PixelCanvas {
     let width: Int
     let height: Int
+    /// Finer pixels to one of the sky's, side by side.
+    static let fine = 2
+    private let fineWidth: Int
     private var pixels: [Pixel]
 
     init(width: Int, height: Int) {
         self.width = width
         self.height = height
-        pixels = Array(repeating: Pixel(0), count: width * height)
+        fineWidth = width * Self.fine
+        pixels = Array(repeating: Pixel(0), count: fineWidth * height)
     }
 
     subscript(x: Int, y: Int) -> Pixel {
-        get { pixels[y * width + x] }
+        get { pixels[y * fineWidth + x * Self.fine] }
         set {
-            if x >= 0, x < width, y >= 0, y < height { pixels[y * width + x] = newValue }
+            guard x >= 0, x < width, y >= 0, y < height else { return }
+            for dx in 0..<Self.fine { pixels[y * fineWidth + x * Self.fine + dx] = newValue }
         }
     }
 
     /// Lay a colour over what is there, part way.
     mutating func blend(_ x: Int, _ y: Int, _ color: Pixel, _ amount: Double) {
-        guard x >= 0, x < width, y >= 0, y < height else { return }
-        pixels[y * width + x] = pixels[y * width + x].mixed(color, amount)
+        guard x >= 0, x < width else { return }
+        blendHalf(x * Self.fine, y, color, amount)
+    }
+
+    /// The same over a whole pixel's worth of the finer grid from the finer
+    /// column `fx`: half a pixel over, where that is odd.
+    mutating func blendHalf(_ fx: Int, _ y: Int, _ color: Pixel, _ amount: Double) {
+        guard y >= 0, y < height else { return }
+        for dx in 0..<Self.fine {
+            let x = fx + dx
+            guard x >= 0, x < fineWidth else { continue }
+            pixels[y * fineWidth + x] = amount >= 1 ? color : pixels[y * fineWidth + x].mixed(color, amount)
+        }
+    }
+
+    /// Every finer pixel, to keep a painted sky and start the next frame from it.
+    fileprivate var all: [Pixel] {
+        get { pixels }
+        set { if newValue.count == pixels.count { pixels = newValue } }
     }
 
     var image: CGImage? {
         let data = pixels.withUnsafeBytes { Data($0) }
         guard let provider = CGDataProvider(data: data as CFData) else { return nil }
-        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+        return CGImage(width: fineWidth, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: fineWidth * 4,
                        space: CGColorSpace(name: CGColorSpace.sRGB)!,
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
@@ -148,45 +177,89 @@ private struct SkyPalette {
 
 // MARK: - Clouds
 
-/// A cloud as a small tile of tones: 0 for nothing, then 1 its lit rim, 2 its
-/// body and 3 its underside.
+/// A cloud as a small tile of tones: 0 for nothing, then 1 its sunlit top,
+/// 2 where the light falls off, 3 its body and 4 its shaded underside.
 private struct CloudSprite {
     let width: Int
     let height: Int
     let tones: [UInt8]
+    /// 0 small, 1 middling, 2 big: which depth of the sky it belongs to.
+    let size: Int
 
-    /// Small, middling and large.
-    static let all = [CloudSprite(width: 14, height: 7, seed: 1), CloudSprite(width: 22, height: 10, seed: 2),
-                      CloudSprite(width: 32, height: 13, seed: 3)]
+    /// Nine, three to a size, so no two clouds in a row look alike.
+    static let all: [CloudSprite] = [(16, 7), (19, 8), (22, 9), (28, 11), (32, 12), (36, 14), (42, 16), (48, 18), (54, 20)]
+        .enumerated().map { CloudSprite(width: $0.element.0, height: $0.element.1, seed: $0.offset + 1, size: $0.offset / 3) }
 
-    /// A row of round puffs, biggest in the middle, cut off flat underneath.
-    init(width: Int, height: Int, seed: Int) {
-        let count = max(3, width / 6)
+    /* Built the way a cumulus is: a flat base with a row of small puffs
+       along it, and bigger ones heaped on top somewhere off the middle. Then
+       lit like cotton, from the upper left as the app's icon is: each pixel
+       takes the light of the puff it is deepest inside, as if that puff were
+       a ball, a little less where two puffs meet, and less again towards the
+       base. The light is cut into four tones, stippled where one gives way to
+       the next, as the sky's own bands are. */
+    init(width: Int, height: Int, seed: Int, size: Int) {
+        let w = Double(width), h = Double(height)
+        let base = h
         var puffs: [(x: Double, y: Double, r: Double)] = []
-        for i in 0..<count {
-            let along = Double(i) / Double(count - 1)
-            let r = (0.26 + 0.28 * sin(along * .pi) + 0.08 * scatter(seed * 50 + i)) * Double(height)
-            puffs.append((x: 0.5 + r + along * (Double(width) - 1 - 2 * r), y: Double(height) - 0.55 * r, r: r))
+        let along = max(3, width / 5)
+        for i in 0..<along {
+            let r = h * (0.22 + 0.16 * scatter(seed * 97 + i))
+            let x = min(max((Double(i) + 0.5) / Double(along) * w, r), w - r)
+            puffs.append((x: x, y: base - r * 0.55, r: r))
+        }
+        let heaps = 1 + Int(scatter(seed * 31) * 2.99)
+        let middle = 0.35 + 0.3 * scatter(seed * 37)
+        for j in 0..<heaps {
+            let r = h * (0.46 + 0.16 * scatter(seed * 41 + j))
+            let x = min(max((middle + (Double(j) - Double(heaps - 1) / 2) * 0.24) * w, r), w - r)
+            let y = max(r + 0.2, base - r * (1.0 + 0.25 * scatter(seed * 43 + j)))
+            puffs.append((x: x, y: y, r: r))
+        }
+        // the underside, flat from the first small puff to the last
+        let slab = (from: puffs[0].x, to: puffs[along - 1].x, rows: max(2, height / 5))
+
+        /// How far inside each puff a point is, 0 at its edge and 1 at its middle.
+        func depths(_ cx: Double, _ cy: Double) -> [Double] {
+            puffs.map { puff in
+                let dx = cx - puff.x, dy = cy - puff.y
+                return 1 - (dx * dx + dy * dy).squareRoot() / puff.r
+            }
         }
         func inside(_ x: Int, _ y: Int) -> Bool {
             guard x >= 0, x < width, y >= 0, y < height else { return false }
-            // a slab along the bottom closes the gaps between the puffs, its last row a little shorter
-            let inset = y == height - 1 ? 3 : 2
-            if y >= height - 3, x >= inset, x < width - inset { return true }
-            return puffs.contains { puff in
-                let dx = Double(x) + 0.5 - puff.x, dy = Double(y) + 0.5 - puff.y
-                return dx * dx + dy * dy <= puff.r * puff.r
-            }
+            if y >= height - slab.rows, Double(x) + 0.5 >= slab.from, Double(x) + 0.5 <= slab.to { return true }
+            return depths(Double(x) + 0.5, Double(y) + 0.5).contains { $0 >= 0 }
         }
+
+        // the light: from the upper left, and towards whoever is looking
+        let light = (x: -0.55, y: -0.75, z: 0.55)
+        let length = (light.x * light.x + light.y * light.y + light.z * light.z).squareRoot()
         var tones = [UInt8](repeating: 0, count: width * height)
         for y in 0..<height {
             for x in 0..<width where inside(x, y) {
-                tones[y * width + x] = !inside(x, y - 1) ? 1 : !inside(x, y + 1) || !inside(x, y + 2) ? 3 : 2
+                let cx = Double(x) + 0.5, cy = Double(y) + 0.5
+                let all = depths(cx, cy)
+                let owner = all.indices.max { all[$0] < all[$1] }!
+                let puff = puffs[owner]
+                let nx = (cx - puff.x) / puff.r, ny = (cy - puff.y) / puff.r
+                let nz = max(0, 1 - nx * nx - ny * ny).squareRoot()
+                let lambert = max(0, (nx * light.x + ny * light.y + nz * light.z) / length)
+                // the puff's own roundness, and the whole cloud's: lit at the top, shaded at the base
+                var lit = 0.12 + 0.48 * lambert + 0.42 * (1 - cy / h)
+                // the creases, where one puff gives way to another
+                let rest = all.enumerated().filter { $0.offset != owner }.map(\.element).max() ?? -1
+                if rest > -0.05, all[owner] < 0.25 { lit -= 0.08 }
+                let stippled = lit + (threshold(x, y) - 0.5) * 0.16
+                var tone: UInt8 = stippled > 0.74 ? 1 : stippled > 0.52 ? 2 : stippled > 0.3 ? 3 : 4
+                // the bottom row is always in shade, and nothing above it is lit
+                if y == height - 1 || !inside(x, y + 1) { tone = 4 }
+                tones[y * width + x] = tone
             }
         }
         self.width = width
         self.height = height
         self.tones = tones
+        self.size = size
     }
 }
 
@@ -204,10 +277,21 @@ struct SkyPainter {
     /// Painted once and left as it is: no lightning.
     var still = false
 
+    /// The sky's bands as last painted, and what for: they are the same from
+    /// one frame to the next, and painting them was most of a frame's work.
+    @MainActor private static var bands: (key: String, pixels: [Pixel])?
+
+    @MainActor
     func paint(at time: Double) -> PixelCanvas {
         let palette = SkyPalette(scene)
         var canvas = PixelCanvas(width: width, height: height)
-        paintSky(&canvas, palette)
+        let key = "\(scene.sky.rawValue) \(scene.phase.rawValue) \(width)x\(height)"
+        if let bands = Self.bands, bands.key == key {
+            canvas.all = bands.pixels
+        } else {
+            paintSky(&canvas, palette)
+            Self.bands = (key, canvas.all)
+        }
         if scene.sky.mood == .fair {
             if scene.phase == .night {
                 paintStars(&canvas, time)
@@ -234,8 +318,12 @@ struct SkyPainter {
         return canvas
     }
 
-    /// Sixteen flat bands from the top colour through the middle to the
-    /// horizon, the lower part of each stippled into the next.
+    /* Sixteen flat bands from the top colour through the middle to the
+       horizon, each stippled into the next. Not in straight rows, nor by the
+       dither's pattern, which laid the stipple out as neat as a chequered
+       cloth: the edge between two bands wanders up and down across the sky
+       in a slow wave, and each pixel's turn from one shade to the next is
+       left to chance. */
     private func paintSky(_ canvas: inout PixelCanvas, _ palette: SkyPalette) {
         let bands = 16
         let shades = (0..<bands).map { band -> Pixel in
@@ -243,11 +331,14 @@ struct SkyPainter {
             return t < 0.5 ? palette.sky[0].mixed(palette.sky[1], t * 2) : palette.sky[1].mixed(palette.sky[2], t * 2 - 1)
         }
         for y in 0..<height {
-            let along = Double(y) / Double(max(1, height - 1)) * Double(bands - 1)
-            let band = min(Int(along), bands - 2)
-            let into = along - Double(band)
             for x in 0..<width {
-                canvas[x, y] = shades[into > 0.4 + 0.6 * threshold(x, y) ? band + 1 : band]
+                let wave = 1.8 * sin(Double(x) * 0.07 + Double(y) * 0.05) + 1.1 * sin(Double(x) * 0.19 + 2.1)
+                    + 0.6 * sin(Double(x) * 0.41 + Double(y) * 0.13 + 0.7)
+                let along = min(max(0, (Double(y) + wave) / Double(max(1, height - 1)) * Double(bands - 1)), Double(bands - 1))
+                let band = min(Int(along), bands - 2)
+                let into = along - Double(band)
+                let chance = scatter(x &* 73_856_093 ^ y &* 19_349_663 ^ 0x5bd1e995)
+                canvas[x, y] = shades[into > chance ? band + 1 : band]
             }
         }
     }
@@ -321,31 +412,49 @@ struct SkyPainter {
         }
     }
 
+    /* The clouds, at three depths: far ones small, slow and a little hazy,
+       near ones big and quicker; all of them solid, as see-through clouds
+       looked like ghosts. The far ones are painted first, so the near ones
+       pass in front. */
     private func paintClouds(_ canvas: inout PixelCanvas, _ palette: SkyPalette, _ time: Double) {
         let count: Int
         switch scene.sky {
         case .clear: count = 0
-        case .mostlyClear: count = 2
-        case .partlyCloudy, .fog: count = 5
-        case .drizzle, .rain, .snow: count = 11
-        case .overcast, .heavyRain, .thunderstorm: count = 14
+        case .mostlyClear: count = 3
+        case .partlyCloudy, .fog: count = 7
+        case .drizzle, .rain, .snow: count = 13
+        case .overcast, .heavyRain, .thunderstorm: count = 17
         }
+        let colors = [palette.cloud[0], palette.cloud[0].mixed(palette.cloud[1], 0.5), palette.cloud[1], palette.cloud[2]]
+        // a narrow sky, the watch's, keeps to clouds that fit it
+        let sprites = CloudSprite.all.filter { $0.width <= max(18, width / 2) }
         // the rows the clouds ride in, counted down from the first they may use: two
         // in the strip of open sky under the date, the rest behind the boxes
         let lanes = [1, 12, 27, 42, 58, 76]
-        let sizes = count > 5 ? [2, 1, 2, 2, 1, 0] : [1, 0, 2, 1, 0]
         let push = min(4, 0.6 + scene.wind / 15)
-        for i in 0..<count {
-            let sprite = CloudSprite.all[sizes[i % sizes.count]]
-            let top = cloudTop + lanes[i % lanes.count] + Int(scatter(i * 5 + 1) * 3)
-            let speed = (0.5 + 0.9 * scatter(i * 5 + 2)) * push
+        // far and near drift at further apart speeds, so they overtake each other
+        let depthSpeed = [0.4, 0.72, 1.1]
+        // every cloud solid: a far one is only a little hazier, the sky's colour mixed into its own
+        let haze = [0.2, 0.08, 0.0]
+        let tinted = haze.map { amount in colors.map { $0.mixed(palette.sky[1], amount) } }
+        for i in (0..<count).sorted(by: { $0 % 3 < $1 % 3 }) {
+            let depth = i % 3
+            let fitting = sprites.filter { $0.size == depth }
+            let choices = fitting.isEmpty ? sprites : fitting
+            let sprite = choices[min(choices.count - 1, Int(scatter(i * 5 + 4) * Double(choices.count)))]
+            let top = cloudTop + lanes[i % lanes.count] + Int(scatter(i * 5 + 1) * 4) - sprite.height / 3
+            // and each its own pace within that, some nearly four times another's
+            let speed = (0.4 + 1.2 * scatter(i * 5 + 2)) * push * depthSpeed[depth]
             // off the right edge, round again from the left
             let span = Double(width + sprite.width + 12)
-            let left = Int((scatter(i * 5 + 3) * span + time * speed).truncatingRemainder(dividingBy: span)) - sprite.width
+            let along = (scatter(i * 5 + 3) * span + time * speed).truncatingRemainder(dividingBy: span) - Double(sprite.width)
+            // where it is to the half pixel: it moves on in steps half as long as the sky's pixels
+            let fine = PixelCanvas.fine
+            let left = Int((along * Double(fine)).rounded(.down))
             for row in 0..<sprite.height {
                 for col in 0..<sprite.width {
                     let tone = sprite.tones[row * sprite.width + col]
-                    if tone > 0 { canvas[left + col, top + row] = palette.cloud[Int(tone) - 1] }
+                    if tone > 0 { canvas.blendHalf(left + col * fine, top + row, tinted[depth][Int(tone) - 1], 1) }
                 }
             }
         }
@@ -479,6 +588,20 @@ struct PixelSky: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    #if os(macOS)
+    /* Whether Timetable is the app in use: behind another app, the sky goes
+       on at a few frames a second, as nobody is watching it closely. The
+       app and not the window, as the window's own state counted a sheet
+       over it — setup — as being elsewhere, and the sky under it slowed. */
+    @State private var appActive = NSApplication.shared.isActive
+    #endif
+
+    private var frameRate: Double {
+        #if os(macOS)
+        if !appActive { return 4 }
+        #endif
+        return 15
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -491,7 +614,11 @@ struct PixelSky: View {
                                      bodyX: Int((strip.maxX - 64) / pixel), bodyY: Int((strip.midY - 6) / pixel),
                                      cloudTop: Int((strip.minY / pixel).rounded(.up)), still: reduceMotion)
             // with Reduce Motion on, one frame is painted and left
-            TimelineView(.animation(minimumInterval: 1.0 / 15, paused: reduceMotion || scenePhase != .active)) { context in
+            let still = reduceMotion || scenePhase != .active
+            #if os(watchOS)
+            // fifteen frames a second: the clouds' smoothness is in their half-pixel steps (PixelCanvas),
+            // as even the quickest moves a few pixels a second; thirty only doubled the work
+            TimelineView(SkyFrames(paused: still, rate: frameRate)) { context in
                 if let image = painter.paint(at: context.date.timeIntervalSinceReferenceDate).image {
                     Image(decorative: image, scale: 1)
                         .interpolation(.none)
@@ -501,9 +628,260 @@ struct PixelSky: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
             .clipped()
+            #else
+            SkyLayer(painter: painter, pixel: pixel, rate: still ? 0 : frameRate)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+            #endif
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
+        #if os(macOS)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            appActive = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            appActive = false
+        }
+        #endif
+    }
+}
+
+#if !os(watchOS)
+#if os(macOS)
+typealias PlatformView = NSView
+typealias PlatformRepresentable = NSViewRepresentable
+#else
+typealias PlatformView = UIView
+typealias PlatformRepresentable = UIViewRepresentable
+#endif
+
+/* The sky's frames put straight onto a layer of their own, by a timer of
+   their own. Shown through SwiftUI, each new frame was a new image in the
+   page, and the whole window — every box, every pane of glass — was worked
+   out again with it: a third of one of a Mac's cores, where a sky held
+   still left the app at one per cent. On a layer, SwiftUI is not told. */
+struct SkyLayer: PlatformRepresentable {
+    let painter: SkyPainter
+    /// Points to one of the sky's pixels.
+    let pixel: CGFloat
+    /// Frames a second; nought for one frame, left still.
+    let rate: Double
+
+    #if os(macOS)
+    func makeNSView(context: Context) -> SkyView { SkyView() }
+    func updateNSView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate) }
+    static func dismantleNSView(_ view: SkyView, coordinator: ()) { view.stop() }
+    #else
+    func makeUIView(context: Context) -> SkyView { SkyView() }
+    func updateUIView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate) }
+    static func dismantleUIView(_ view: SkyView, coordinator: ()) { view.stop() }
+    #endif
+}
+
+final class SkyView: PlatformView {
+    /// The painted frame, scaled up unsmoothed so every pixel stays square.
+    private let picture = CALayer()
+    private var painter: SkyPainter?
+    /// Frames a second as asked for, and as the timer goes: nought while
+    /// the sky is held still.
+    private var rate = 0.0
+    private var running = 0.0
+    private var timer: Timer?
+    /// The sky's own clock: the time, less however long it has been held
+    /// still, so it goes on from where it stopped rather than jumping ahead.
+    private var held: TimeInterval = 0
+    private var heldSince: Date?
+    #if os(macOS)
+    /// Looks every so often for Mission Control over the window (`look`).
+    private var lookout: Timer?
+    private var dock: NSRunningApplication?
+    /// How wide the window is drawn under Mission Control, at its smallest,
+    /// and whether it has grown back from that: Mission Control is going.
+    private var shrunk: CGFloat?
+    private var leaving = false
+    #endif
+
+    init() {
+        super.init(frame: .zero)
+        #if os(macOS)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        layer?.addSublayer(picture)
+        #else
+        isUserInteractionEnabled = false
+        layer.masksToBounds = true
+        layer.addSublayer(picture)
+        #endif
+        picture.anchorPoint = .zero
+        picture.contentsGravity = .resize
+        picture.magnificationFilter = .nearest
+    }
+
+    required init?(coder: NSCoder) { fatalError("made in code") }
+
+    #if os(macOS)
+    // from the top left, as the frame is painted; and nothing here is to be clicked
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        keepLookout()
+    }
+    #endif
+
+    func show(_ painter: SkyPainter, pixel: CGFloat, rate: Double) {
+        self.painter = painter
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        picture.frame = CGRect(x: 0, y: 0, width: CGFloat(painter.width) * pixel, height: CGFloat(painter.height) * pixel)
+        CATransaction.commit()
+        self.rate = rate
+        #if os(macOS)
+        keepLookout()
+        #endif
+        keepTime()
+        paint()
+    }
+
+    /// Sets the timer going at the rate asked for, or stops it while the
+    /// sky is held still.
+    private func keepTime() {
+        let wanted = heldSince == nil ? rate : 0
+        guard wanted != running || (wanted > 0 && timer == nil) else { return }
+        timer?.invalidate()
+        timer = nil
+        running = wanted
+        guard wanted > 0 else { return }
+        let timer = Timer(timeInterval: 1 / wanted, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.paint() }
+        }
+        timer.tolerance = 0.2 / wanted
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func hold(_ still: Bool) {
+        guard still != (heldSince != nil) else { return }
+        if let heldSince {
+            held += Date.now.timeIntervalSince(heldSince)
+            self.heldSince = nil
+        } else {
+            heldSince = .now
+        }
+        keepTime()
+    }
+
+    private func paint() {
+        let time = (heldSince ?? .now).timeIntervalSinceReferenceDate - held
+        guard let image = painter?.paint(at: time).image else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        picture.contents = image
+        CATransaction.commit()
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        #if os(macOS)
+        lookout?.invalidate()
+        lookout = nil
+        #endif
+    }
+
+    #if os(macOS)
+    /* Under Mission Control and App Exposé the window is one small picture
+       among the others, and its sky is held still. Nothing tells a window
+       they have come up: what shows it is the Dock's own window, put up
+       over the whole screen and so over this one (Launchpad's is the same,
+       and the sky is out of sight under that too). So while the sky is
+       going, the windows in front of this one are looked through for the
+       Dock's — about a seventh of a millisecond, where all the screen's
+       windows took twenty times as long — four times a second, and twenty
+       while it is there. The sky is let go as soon as the window starts to
+       grow back to its own size: the Dock's window stays on to the end, and
+       waiting for it, the sky came back still for half a second. */
+    private static let watching: TimeInterval = 0.25
+    private static let closely: TimeInterval = 0.05
+
+    private func keepLookout() {
+        let wanted = window != nil && rate > 0
+        guard wanted != (lookout != nil) else { return }
+        settle(covered: false)
+        look(every: wanted ? Self.watching : nil)
+    }
+
+    private func look(every interval: TimeInterval?) {
+        lookout?.invalidate()
+        lookout = nil
+        guard let interval else { return }
+        let lookout = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.look() }
+        }
+        lookout.tolerance = interval / 5
+        RunLoop.main.add(lookout, forMode: .common)
+        self.lookout = lookout
+    }
+
+    private func look() {
+        guard let window, window.windowNumber > 0, let main = NSScreen.screens.first else { return }
+        if dock?.isTerminated ?? true {
+            dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
+        }
+        guard let dock = dock?.processIdentifier else { return }
+        let id = CGWindowID(window.windowNumber)
+        // the window's middle, from the top left of the main screen, as the window server counts
+        let middle = CGPoint(x: window.frame.midX, y: main.frame.height - window.frame.midY)
+        let over = CGWindowListCopyWindowInfo([.optionOnScreenAboveWindow, .excludeDesktopElements], id) as? [[String: Any]] ?? []
+        let covered = over.contains { info in
+            (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == dock
+                && Self.bounds(of: info)?.contains(middle) == true
+        }
+        if covered, let drawn = (CGWindowListCopyWindowInfo(.optionIncludingWindow, id) as? [[String: Any]])?.first
+            .flatMap(Self.bounds(of:))?.width {
+            // a tenth wider than it was at its smallest: on its way back
+            if let shrunk, drawn > shrunk * 1.1 { leaving = true }
+            shrunk = min(shrunk ?? drawn, drawn)
+        }
+        settle(covered: covered)
+    }
+
+    private func settle(covered: Bool) {
+        if !covered {
+            shrunk = nil
+            leaving = false
+        }
+        hold(covered && !leaving)
+        let interval = covered ? Self.closely : Self.watching
+        if let lookout, lookout.timeInterval != interval { look(every: interval) }
+    }
+
+    private static func bounds(of info: [String: Any]) -> CGRect? {
+        (info[kCGWindowBounds as String] as? NSDictionary).flatMap { CGRect(dictionaryRepresentation: $0) }
+    }
+    #endif
+}
+#endif
+
+/* The sky's frames on the watch, where there is no layer to hand them to:
+   fifteen a second, by the clock, or none at all while it is to keep still. An animation schedule asked for at fifteen still woke
+   the window at every refresh of the screen — a hundred and twenty times a
+   second on a Mac's — to see whether a frame was due, and that came to more
+   than painting the frames did. */
+struct SkyFrames: TimelineSchedule {
+    var paused: Bool
+    /// Frames a second.
+    var rate: Double
+
+    func entries(from start: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next = start
+        let paused = paused, step = 1 / rate
+        return AnyIterator {
+            guard !paused else { return nil }
+            defer { next = next.addingTimeInterval(step) }
+            return next
+        }
     }
 }
 

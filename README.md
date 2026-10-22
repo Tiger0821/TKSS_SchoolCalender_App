@@ -426,9 +426,22 @@ day's high and low on glass in its corner.
   twilight to night on its own between readings.
 - Over a sky the page is always in its dark colours, since every sky is dark
   at the top where the date is.
-- With Reduce Motion on, the sky is painted once and left still.
+- With Reduce Motion on, the sky is painted once and left still. On the Mac
+  it is held still under Mission Control and App Exposé, and goes on from
+  where it stopped as soon as the window starts to grow back: nothing tells
+  a window they are up, so the sky looks four times a second for the Dock's
+  window over it, and twenty while it is there.
+- The clouds are heaped cumulus, nine shapes of them, lit from the upper left
+  in four tones and stippled between; they ride at three depths, the far ones
+  small, a little hazy and slow, the near ones big and quicker, all of them
+  solid, so they pass each other on the wind. A cloud moves half a pixel at a time, which keeps
+  it pixel art and still lets it glide.
 - Nothing is an image file. `PixelSky.swift` paints each frame into a small
-  grid of pixels, fifteen times a second, and scales it up unsmoothed.
+  grid of pixels, fifteen times a second, and scales it up unsmoothed. On
+  the phone and the Mac each frame goes straight onto a layer of its own
+  (`SkyLayer`), out of SwiftUI's sight: handed to SwiftUI, every frame had
+  the whole window worked out again, and the Mac app sat at a third of a
+  core where it now sits at about two per cent.
 
 To see a sky without waiting for the weather, launch with the argument
 `-demoWeather` and a sky and a time of day — `-demoWeather thunderstorm-night`,
