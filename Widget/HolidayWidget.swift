@@ -15,8 +15,13 @@ struct HolidayWidget: Widget {
         }
         .configurationDisplayName("Holiday Countdown")
         .description("Days to Taiwan's next national holiday — and the hours, minutes and seconds once it's under a day away.")
+        #if os(iOS)
         .supportedFamilies([.systemSmall, .systemMedium,
                             .accessoryRectangular, .accessoryCircular, .accessoryInline])
+        #else
+        // a Mac has no Lock Screen to put the rest on
+        .supportedFamilies([.systemSmall, .systemMedium])
+        #endif
     }
 }
 
@@ -59,9 +64,11 @@ struct HolidayView: View {
     var body: some View {
         let next = Holidays.upcoming(at: entry.date).first
         switch family {
+        #if os(iOS)
         case .accessoryInline: HolidayInline(holiday: next, now: entry.date)
         case .accessoryCircular: HolidayCircular(holiday: next, now: entry.date)
         case .accessoryRectangular: HolidayRectangular(holiday: next, now: entry.date)
+        #endif
         case .systemMedium:
             HStack(alignment: .top, spacing: 14) {
                 TodayBlock(now: entry.date)
@@ -182,6 +189,7 @@ struct HolidayBlock: View {
 
 // MARK: - Lock Screen
 
+#if os(iOS)
 struct HolidayRectangular: View {
     let holiday: Holiday?
     let now: Date
@@ -269,6 +277,8 @@ struct HolidayInline: View {
         }
     }
 }
+
+#endif
 
 #Preview("Holiday", as: .systemSmall) {
     HolidayWidget()

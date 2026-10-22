@@ -41,6 +41,11 @@ struct Tone: Sendable {
             let hex = traits.userInterfaceStyle == .dark ? dark : light
             return UIColor(red: Self.part(hex, 16), green: Self.part(hex, 8), blue: Self.part(hex, 0), alpha: 1)
         })
+        #elseif os(macOS)
+        Color(nsColor: NSColor(name: nil) { [light, dark] appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: Self.part(hex, 16), green: Self.part(hex, 8), blue: Self.part(hex, 0), alpha: 1)
+        })
         #else
         // the watch is always dark
         onDark

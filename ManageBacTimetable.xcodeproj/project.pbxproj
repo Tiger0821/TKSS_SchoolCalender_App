@@ -10,6 +10,7 @@
 		AA0000000000000000000040 /* TimetableWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000005 /* TimetableWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA0000000000000000000140 /* TimetableWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000105 /* TimetableWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA0000000000000000000141 /* TimetableWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000104 /* TimetableWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA0000000000000000000240 /* TimetableMacWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000205 /* TimetableMacWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AA0000000000000000000120;
 			remoteInfo = TimetableWatch;
+		};
+		AA0000000000000000000242 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000221;
+			remoteInfo = TimetableMacWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -70,6 +78,17 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA0000000000000000000233 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA0000000000000000000240 /* TimetableMacWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +96,8 @@
 		AA0000000000000000000005 /* TimetableWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000104 /* TimetableWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TimetableWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000105 /* TimetableWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000204 /* Timetable.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Timetable.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000205 /* TimetableMacWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableMacWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -108,6 +129,35 @@
 			);
 			target = AA0000000000000000000121 /* TimetableWatchWidget */;
 		};
+		AA0000000000000000000213 /* Exceptions for "Widget" folder in "TimetableMacWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ClassLiveActivity.swift,
+				Info.plist,
+			);
+			target = AA0000000000000000000221 /* TimetableMacWidget */;
+		};
+		AA0000000000000000000214 /* Exceptions for "Shared" folder in "TimetableMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ClassActivity.swift,
+			);
+			target = AA0000000000000000000220 /* TimetableMac */;
+		};
+		AA0000000000000000000215 /* Exceptions for "Shared" folder in "TimetableMacWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ClassActivity.swift,
+			);
+			target = AA0000000000000000000221 /* TimetableMacWidget */;
+		};
+		AA0000000000000000000216 /* Exceptions for "Common" folder in "TimetableMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DeviceLink.swift,
+			);
+			target = AA0000000000000000000220 /* TimetableMac */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -121,6 +171,8 @@
 			exceptions = (
 				AA0000000000000000000114 /* Exceptions for "Shared" folder in "TimetableWatch" target */,
 				AA0000000000000000000115 /* Exceptions for "Shared" folder in "TimetableWatchWidget" target */,
+				AA0000000000000000000214 /* Exceptions for "Shared" folder in "TimetableMac" target */,
+				AA0000000000000000000215 /* Exceptions for "Shared" folder in "TimetableMacWidget" target */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -129,12 +181,16 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AA0000000000000000000013 /* Exceptions for "Widget" folder in "TimetableWidgetExtension" target */,
+				AA0000000000000000000213 /* Exceptions for "Widget" folder in "TimetableMacWidget" target */,
 			);
 			path = Widget;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000110 /* Common */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA0000000000000000000216 /* Exceptions for "Common" folder in "TimetableMac" target */,
+			);
 			path = Common;
 			sourceTree = "<group>";
 		};
@@ -149,6 +205,16 @@
 				AA0000000000000000000113 /* Exceptions for "WatchWidget" folder in "TimetableWatchWidget" target */,
 			);
 			path = WatchWidget;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000210 /* Mac */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Mac;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000211 /* Page */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Page;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -182,6 +248,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA0000000000000000000231 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000235 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -189,11 +269,13 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000010 /* App */,
+				AA0000000000000000000211 /* Page */,
 				AA0000000000000000000011 /* Shared */,
 				AA0000000000000000000012 /* Widget */,
 				AA0000000000000000000110 /* Common */,
 				AA0000000000000000000111 /* Watch */,
 				AA0000000000000000000112 /* WatchWidget */,
+				AA0000000000000000000210 /* Mac */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -205,6 +287,8 @@
 				AA0000000000000000000005 /* TimetableWidgetExtension.appex */,
 				AA0000000000000000000104 /* TimetableWatch.app */,
 				AA0000000000000000000105 /* TimetableWatchWidget.appex */,
+				AA0000000000000000000204 /* Timetable.app */,
+				AA0000000000000000000205 /* TimetableMacWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -230,6 +314,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000010 /* App */,
+				AA0000000000000000000211 /* Page */,
 				AA0000000000000000000011 /* Shared */,
 				AA0000000000000000000110 /* Common */,
 			);
@@ -312,6 +397,56 @@
 			productReference = AA0000000000000000000105 /* TimetableWatchWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AA0000000000000000000220 /* TimetableMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000251 /* Build configuration list for PBXNativeTarget "TimetableMac" */;
+			buildPhases = (
+				AA0000000000000000000230 /* Sources */,
+				AA0000000000000000000231 /* Frameworks */,
+				AA0000000000000000000232 /* Resources */,
+				AA0000000000000000000233 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000000000000000000241 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AA0000000000000000000210 /* Mac */,
+				AA0000000000000000000211 /* Page */,
+				AA0000000000000000000011 /* Shared */,
+				AA0000000000000000000110 /* Common */,
+			);
+			name = TimetableMac;
+			packageProductDependencies = (
+			);
+			productName = TimetableMac;
+			productReference = AA0000000000000000000204 /* Timetable.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AA0000000000000000000221 /* TimetableMacWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000252 /* Build configuration list for PBXNativeTarget "TimetableMacWidget" */;
+			buildPhases = (
+				AA0000000000000000000234 /* Sources */,
+				AA0000000000000000000235 /* Frameworks */,
+				AA0000000000000000000236 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA0000000000000000000011 /* Shared */,
+				AA0000000000000000000012 /* Widget */,
+			);
+			name = TimetableMacWidget;
+			packageProductDependencies = (
+			);
+			productName = TimetableMacWidget;
+			productReference = AA0000000000000000000205 /* TimetableMacWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -334,6 +469,12 @@
 					AA0000000000000000000121 = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					AA0000000000000000000220 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					AA0000000000000000000221 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = AA0000000000000000000050 /* Build configuration list for PBXProject "ManageBacTimetable" */;
@@ -354,6 +495,8 @@
 				AA0000000000000000000021 /* TimetableWidgetExtension */,
 				AA0000000000000000000120 /* TimetableWatch */,
 				AA0000000000000000000121 /* TimetableWatchWidget */,
+				AA0000000000000000000220 /* TimetableMac */,
+				AA0000000000000000000221 /* TimetableMacWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -381,6 +524,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA0000000000000000000136 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000232 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000236 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -418,6 +575,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA0000000000000000000230 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000234 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -435,6 +606,11 @@
 			isa = PBXTargetDependency;
 			target = AA0000000000000000000121 /* TimetableWatchWidget */;
 			targetProxy = AA0000000000000000000142 /* PBXContainerItemProxy */;
+		};
+		AA0000000000000000000241 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000221 /* TimetableMacWidget */;
+			targetProxy = AA0000000000000000000242 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -730,6 +906,132 @@
 			};
 			name = Release;
 		};
+		AA0000000000000000000262 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mac/TimetableMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5A36C96858;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Timetable;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Your location is used to show the weather where you are.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to show the weather where you are.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tigercho.ManageBacTimetable;
+				PRODUCT_MODULE_NAME = TimetableMac;
+				PRODUCT_NAME = Timetable;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000263 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mac/TimetableMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5A36C96858;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Timetable;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Your location is used to show the weather where you are.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to show the weather where you are.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tigercho.ManageBacTimetable;
+				PRODUCT_MODULE_NAME = TimetableMac;
+				PRODUCT_NAME = Timetable;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AA0000000000000000000264 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Mac/TimetableMacWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5A36C96858;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Timetable;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tigercho.ManageBacTimetable.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000265 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Mac/TimetableMacWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5A36C96858;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Widget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Timetable;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tigercho.ManageBacTimetable.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -774,6 +1076,24 @@
 			buildConfigurations = (
 				AA0000000000000000000164 /* Debug */,
 				AA0000000000000000000165 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000251 /* Build configuration list for PBXNativeTarget "TimetableMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000262 /* Debug */,
+				AA0000000000000000000263 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000252 /* Build configuration list for PBXNativeTarget "TimetableMacWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000264 /* Debug */,
+				AA0000000000000000000265 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

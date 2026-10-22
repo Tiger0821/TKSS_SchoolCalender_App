@@ -150,15 +150,27 @@ final class WeatherModel {
 
     /// One fix on the phone's position, or nil when it is refused or slow.
     private static func whereabouts() async -> CLLocation? {
-        await fix() ?? standIn
+        #if os(macOS)
+        if asker.authorizationStatus == .notDetermined { asker.requestWhenInUseAuthorization() }
+        #endif
+        return await fix() ?? standIn
     }
+
+    #if os(macOS)
+    /// A Mac has no service session to ask leave with, so it is asked the
+    /// older way, by a manager kept for as long as the app runs; the updates
+    /// below wait on the answer.
+    private static let asker = CLLocationManager()
+    #endif
 
     private static func fix() async -> CLLocation? {
         await withTaskGroup(of: CLLocation?.self) { group in
             group.addTask {
+                #if !os(macOS)
                 // asks for leave to use the location the first time
                 let session = CLServiceSession(authorization: .whenInUse)
                 defer { session.invalidate() }
+                #endif
                 let settled = try? await CLLocationUpdate.liveUpdates().first { update in
                     update.location != nil || update.authorizationDenied || update.authorizationDeniedGlobally
                         || update.authorizationRestricted

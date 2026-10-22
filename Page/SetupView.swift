@@ -75,7 +75,10 @@ struct SetupView: View {
             .scrollDismissesKeyboard(.interactively)
             bottomBar
         }
+        // in a window wider than a phone (the Mac's), the questions keep to a column
+        .frame(maxWidth: 620)
         .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
         .background {
             GeometryReader { proxy in
                 // a clear night: nothing drifts behind the questions, white reads over all
@@ -162,7 +165,11 @@ struct SetupView: View {
             question("What's your name?", "It goes at the top of your timetable.") {
                 TextField("Your name", text: $draft.name)
                     .font(.title2.weight(.semibold))
+                    // the Mac's own field has a frame drawn round it; the glass is frame enough
+                    .textFieldStyle(.plain)
+                    #if os(iOS)
                     .textContentType(.givenName)
+                    #endif
                     .submitLabel(.next)
                     .focused($typingName)
                     .onSubmit { if canGoOn { go(to: step + 1) } }
@@ -277,7 +284,9 @@ struct SetupView: View {
     private func clubFields(_ prompt: String, _ club: Binding<Profile.Club>) -> some View {
         VStack(spacing: 0) {
             TextField(prompt, text: club.name)
+                #if os(iOS)
                 .textInputAutocapitalization(.words)
+                #endif
                 .frame(minHeight: 46)
             Divider()
             HStack(spacing: 10) {
@@ -285,11 +294,14 @@ struct SetupView: View {
                 Divider()
                     .frame(height: 22)
                 TextField("Teacher", text: club.staff)
+                    #if os(iOS)
                     .textInputAutocapitalization(.words)
+                    #endif
             }
             .font(.subheadline)
             .frame(minHeight: 42)
         }
+        .textFieldStyle(.plain)
         .padding(.horizontal, 14)
         .background(.quaternary, in: .rect(cornerRadius: 14))
     }
