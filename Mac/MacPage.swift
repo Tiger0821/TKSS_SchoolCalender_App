@@ -393,6 +393,8 @@ private struct PersonButton: View {
     @State private var overPerson = false
     /// One more each time the pointer comes onto the person, for the trackpad's tap.
     @State private var personVisits = 0
+    /// One more each time the person is clicked, which nods.
+    @State private var nods = 0
     @State private var overGear = false
     /// One more each time the pointer comes onto the gear, which turns it once.
     @State private var gearTurns = 0
@@ -494,10 +496,13 @@ private struct PersonButton: View {
 
     private var person: some View {
         let lean = lean(personFrame)
-        return Button(action: edit) {
+        return Button {
+            nods += 1
+            edit()
+        } label: {
             HStack(spacing: 8) {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: size * 0.5, weight: .medium))
+                // the person, alive (`Avatar`)
+                Avatar(size: size * 0.65, greeted: overPerson, open: open, nods: nods)
                 if open {
                     Text(profile.name)
                         .font(.callout.weight(.semibold))

@@ -288,7 +288,29 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
 
 - **The window** is the phone's page, its top laid out for a wide window.
   Whose timetable it is is a person on glass in the middle of the header,
-  which opens setup. Under the pointer it stretches into a capsule with the
+  which opens setup. The person is alive, as the Mac's login picture is when
+  it is a Memoji (`Mac/MacAvatar.swift`): Apple's Memoji is drawn by a
+  framework apps aren't given, so it is the person symbol's own ring, head
+  and shoulders, with the Face ID symbol's face (two upright eyes, a nose
+  that turns at its foot and a smile) cut out of the head. It opens its eyes
+  as the window comes up, looks at the pointer wherever it is on the screen
+  (the face most, the head less, the shoulders hardly, so it seems to turn),
+  blinks every few seconds, smiles wider while the pointer is on it and nods
+  when clicked. Bored, with the pointer still for 15 to 30 seconds and the
+  pointer not on it, it gets up
+  to something, a different thing each time: it ducks out of sight and
+  peeks in round one side of the ring and then the other, one eye showing,
+  before popping back up (探頭); it climbs out over the top of the ring,
+  hands first, sits on it with its legs dangling and jumps back in (爬出來);
+  or it slips out of the bottom of the ring, falls with its arms up and its
+  mouth open to the bottom of the window, bounces, and is hauled back up on
+  a thread, swinging, as a spider goes back up its own (掉下來，被吊回去).
+  Left alone for a minute it dozes off, head down, with z's rising
+  off it, and the pointer or a key wakes it with a start. As the login
+  window shakes its head at a wrong password and grins at a right one, it
+  shakes its head and frowns when ManageBac turns a look away, and grins
+  when you sign in again. With Reduce Motion it doesn't follow the pointer,
+  hop or sway, gets up to nothing, and no z's rise. Under the pointer it stretches into a capsule with the
   name and the form, on a spring as Apple's glass moves, the words coming up
   through a blur; out of its far end the gear for Settings comes away as a
   drop of glass of its own, the two pulling apart as water does, and the
@@ -655,7 +677,8 @@ The widgets do not show the weather and still use no network.
 - `Watch/` and `WatchWidget/` — the watch app and its Smart Stack widget.
   `Shared/ClassActivity.swift` is left out of both, since there is no
   ActivityKit on the watch.
-- `Mac/` — the Mac app: `MacPage.swift` is the window, `MacBoxes.swift` its
+- `Mac/` — the Mac app: `MacPage.swift` is the window, `MacAvatar.swift` the
+  person in its header, `MacBoxes.swift` its
   boxes and the moving of them, `MacBackdrop.swift` what is behind it (the
   sky or glass) and the choice of it, `MenuBarClass.swift` the menu bar's
   class and its panel, `MacSettings.swift` Settings, and `MacModel.swift`
