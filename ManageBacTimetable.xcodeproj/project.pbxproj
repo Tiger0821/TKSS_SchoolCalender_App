@@ -917,7 +917,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEPLOYMENT_LOCATION = YES;
 				DEVELOPMENT_TEAM = 5A36C96858;
+				DSTROOT = /Applications;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -926,6 +928,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Your location is used to show the weather where you are.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to show the weather where you are.";
+				INSTALL_PATH = /;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -936,6 +939,7 @@
 				PRODUCT_MODULE_NAME = TimetableMac;
 				PRODUCT_NAME = Timetable;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -951,7 +955,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEPLOYMENT_LOCATION = YES;
 				DEVELOPMENT_TEAM = 5A36C96858;
+				DSTROOT = /Applications;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -960,6 +966,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Your location is used to show the weather where you are.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to show the weather where you are.";
+				INSTALL_PATH = /;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -970,6 +977,7 @@
 				PRODUCT_MODULE_NAME = TimetableMac;
 				PRODUCT_NAME = Timetable;
 				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
