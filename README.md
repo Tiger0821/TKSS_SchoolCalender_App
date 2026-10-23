@@ -297,7 +297,13 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   moment after the pointer has gone, so a pointer that overshoots the gear
   finds it still there. Under the pointer each drop swells a little, the
   person's as well as the gear's, the gear turns once, and the trackpad
-  gives a tap each time the pointer comes onto either. Beside it the day
+  gives a tap each time the pointer comes onto either. Each drop also leans
+  after the pointer, up, down and side to side: its near edge reaches out,
+  the far one follows a little, it thins across as a drop of water pulled
+  at does, and it settles back with a wobble once the pointer goes; the
+  gear in its drop is pulled out of shape along with it. The
+  person pushes the gear along as it reaches for it, and the gear only
+  draws in toward the person, so the two never run into one. Beside it the day
   and the weather face each other across the sky, line for line — the date large,
   and the weekday and the clock under it, at the left; the temperature
   large, and the conditions, the high and low and the place under it, at the

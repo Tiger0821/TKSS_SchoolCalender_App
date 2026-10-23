@@ -372,7 +372,14 @@ private struct WeatherLine: View {
    pointer each drop swells a little: the person's all round, the gear
    making room for it, and the gear's away from the person, the gear
    turning once. The trackpad gives a tap each time the pointer comes onto
-   either of them. */
+   either of them.
+
+   And each drop leans after the pointer as it goes over it, up and down
+   and side to side (`lean`): its near edge reaches out, its far one
+   follows a little way, and it thins across, as a drop of water does when
+   it is pulled at, while the person or gear in it lags a little behind.
+   Off the drop it holds on over the margin, then lets go and settles back
+   with a wobble. */
 private struct PersonButton: View {
     let profile: Profile
     /// Across, when it is a drop; the gear is as wide.
@@ -389,6 +396,12 @@ private struct PersonButton: View {
     @State private var overGear = false
     /// One more each time the pointer comes onto the gear, which turns it once.
     @State private var gearTurns = 0
+    /// Where the pointer is while it is over them, in the window.
+    @State private var pointer: CGPoint?
+    /// Where each drop sits, as it would without leaning or swelling.
+    @State private var personFrame = CGRect.zero
+    @State private var gearFrame = CGRect.zero
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Between the person and the gear, and as far as the two drops reach
     /// for each other: they come apart, and then stand clear.
     private static let gap: CGFloat = 10
@@ -396,12 +409,17 @@ private struct PersonButton: View {
     private static let margin: CGFloat = 11
     private static let grace = Duration.milliseconds(420)
     private static let spring = Animation.spring(duration: 0.45, bounce: 0.3)
+    /// After the pointer, close behind it; and back, once it has gone, with more give.
+    private static let follow = Animation.spring(duration: 0.3, bounce: 0.15)
+    private static let release = Animation.spring(duration: 0.6, bounce: 0.45)
     /// How much a drop grows under the pointer.
     private var swell: CGFloat { size * 0.12 }
 
     var body: some View {
-        // wider by half the person's swell while it is swollen, so the gear keeps clear of it
-        let spacing = Self.gap + (overPerson ? swell / 2 : 0)
+        // wider by half the person's swell while it is swollen, and by as far as it reaches toward
+        // the gear, which it pushes along, so the gear keeps clear of it: closer, the two would run
+        // into one
+        let spacing = Self.gap + (overPerson ? swell / 2 : 0) + (open ? max(0, lean(personFrame).edges.trailing) : 0)
         GlassEffectContainer(spacing: Self.gap) {
             HStack(spacing: spacing) {
                 person
@@ -433,12 +451,50 @@ private struct PersonButton: View {
                     }
                 }
             }
+            // in the window's space, where the drops stay put as the gear is pushed along: in the
+            // container's own, which widens with it, the pointer would seem to move
+            .onContinuousHover(coordinateSpace: .global) { phase in
+                switch phase {
+                case .active(let location):
+                    withAnimation(Self.follow) { pointer = location }
+                case .ended:
+                    withAnimation(Self.release) { pointer = nil }
+                }
+            }
             .padding(open ? -Self.margin : 0)
         }
     }
 
+    /* How far a drop leans toward the pointer: the edge nearer it out by up
+       to a fifth of the drop's height side to side, or an eighth up and
+       down, the far edge after it by two fifths of that, and the other two
+       in by a fifth of it. Eased, so it is calm with the pointer in the
+       middle and gives most toward the edges. */
+    private func lean(_ frame: CGRect) -> (edges: EdgeInsets, shift: CGSize) {
+        guard let pointer, !reduceMotion, frame.width > 0, frame.height > 0 else { return (EdgeInsets(), .zero) }
+        let dx = pointer.x - frame.midX, dy = pointer.y - frame.midY
+        let halfWidth = frame.width / 2, halfHeight = frame.height / 2
+        // off the drop, less the further off it the pointer is, until none at the margin's edge
+        let off = hypot(max(0, abs(dx) - halfWidth), max(0, abs(dy) - halfHeight))
+        let hold = max(0, 1 - off / Self.margin)
+        func eased(_ n: CGFloat) -> CGFloat {
+            let m = min(1, abs(n))
+            return (n < 0 ? -1 : 1) * m * m * (3 - 2 * m) * hold
+        }
+        let x = eased(dx / halfWidth) * size * 0.2
+        let y = eased(dy / halfHeight) * size * 0.12
+        let back: CGFloat = 0.4, thin: CGFloat = 0.2
+        let edges = EdgeInsets(
+            top: (y < 0 ? -y : -y * back) - abs(x) * thin,
+            leading: (x < 0 ? -x : -x * back) - abs(y) * thin,
+            bottom: (y > 0 ? y : y * back) - abs(x) * thin,
+            trailing: (x > 0 ? x : x * back) - abs(y) * thin)
+        return (edges, CGSize(width: x * 0.35, height: y * 0.35))
+    }
+
     private var person: some View {
-        Button(action: edit) {
+        let lean = lean(personFrame)
+        return Button(action: edit) {
             HStack(spacing: 8) {
                 Image(systemName: "person.crop.circle")
                     .font(.system(size: size * 0.5, weight: .medium))
@@ -457,18 +513,27 @@ private struct PersonButton: View {
                         .transition(.blurReplace)
                 }
             }
+            .offset(lean.shift)
             .foregroundStyle(.white)
             .padding(.horizontal, open ? 14 : 0)
             .frame(minWidth: size, minHeight: size)
             // swollen, the glass is really larger all round, the person and the words as they were
             .padding(overPerson ? swell / 2 : 0)
+            // and leaning, longer toward the pointer, by the same means
+            .padding(lean.edges)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .capsule)
         .glassEffectID("person", in: glass)
         // in the room it had, so the header doesn't move under it
+        .padding(lean.edges.negated)
         .padding(overPerson ? -swell / 2 : 0)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            withAnimation(Self.follow) { personFrame = frame }
+        }
         .onHover { hovering in
             withAnimation(Self.spring) { overPerson = hovering }
             if hovering { personVisits += 1 }
@@ -487,21 +552,39 @@ private struct PersonButton: View {
         // swollen, the drop is really larger, the gear in its middle: scaled instead, the glass,
         // drawn by its container, grew from its top left corner and left the gear off to one side
         let across = size + (overGear ? swell : 0)
+        var lean = lean(gearFrame)
+        // toward the person it only draws in: reaching out, it would run into the person, which
+        // stays where it is
+        lean.edges.leading = min(0, lean.edges.leading)
+        // and the gear in it is pulled out of shape with it, as much longer or shorter each way as
+        // the drop is
+        let stretch = CGSize(width: 1 + (lean.edges.leading + lean.edges.trailing) / size,
+                             height: 1 + (lean.edges.top + lean.edges.bottom) / size)
         return Button {
             openSettings()
         } label: {
             Image(systemName: "gearshape")
                 .font(.system(size: size * 0.45, weight: .medium))
                 .symbolEffect(.rotate.clockwise, value: gearTurns)
+                .scaleEffect(stretch)
                 .foregroundStyle(.white)
+                .offset(lean.shift)
                 .frame(width: across, height: across)
-                .contentShape(.circle)
+                .padding(lean.edges)
+                .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        // a capsule, which is a circle until it leans: a circle stays round in a longer frame
+        .glassEffect(.regular.interactive(), in: .capsule)
         .glassEffectID("gear", in: glass)
+        .padding(lean.edges.negated)
         // in the room it had: it swells away from the person, and the two drops stay apart
         .frame(width: size, height: size, alignment: .leading)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            withAnimation(Self.follow) { gearFrame = frame }
+        }
         .onHover { hovering in
             withAnimation(Self.spring) { overGear = hovering }
             if hovering { gearTurns += 1 }
@@ -511,6 +594,13 @@ private struct PersonButton: View {
         .focusEffectDisabled()
         .help("Settings")
         .accessibilityLabel("Settings")
+    }
+}
+
+private extension EdgeInsets {
+    /// The same the other way, to take back off round a view what was put on inside it.
+    var negated: EdgeInsets {
+        EdgeInsets(top: -top, leading: -leading, bottom: -bottom, trailing: -trailing)
     }
 }
 
