@@ -290,15 +290,15 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   Whose timetable it is is a person on glass in the middle of the header,
   which opens setup. Under the pointer it stretches into a capsule with the
   name and the form, on a spring as Apple's glass moves, the words coming up
-  through a blur, and the trackpad gives a tap as it opens; out of its far
-  end the gear for Settings comes away as a drop of glass of its own, the
-  two pulling apart as water does, and the person stays where it was
-  (`PersonButton`). It is quick to open and slow to close: a margin round
-  it still counts as over it, and it waits a moment after the pointer has
-  gone, so a pointer that overshoots the gear finds it still there. Under
-  the pointer the gear's drop swells a little, the gear turns once, and the
-  trackpad gives a tap. Beside it the day and the
-  weather face each other across the sky, line for line — the date large,
+  through a blur; out of its far end the gear for Settings comes away as a
+  drop of glass of its own, the two pulling apart as water does, and the
+  person stays where it was (`PersonButton`). It is quick to open and slow
+  to close: a margin round it still counts as over it, and it waits a
+  moment after the pointer has gone, so a pointer that overshoots the gear
+  finds it still there. Under the pointer each drop swells a little, the
+  person's as well as the gear's, the gear turns once, and the trackpad
+  gives a tap each time the pointer comes onto either. Beside it the day
+  and the weather face each other across the sky, line for line — the date large,
   and the weekday and the clock under it, at the left; the temperature
   large, and the conditions, the high and low and the place under it, at the
   right — with the sun or the moon between them, all in white with a soft
@@ -312,11 +312,71 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   at the top of what is left while its lessons slide up beneath it. Under the
   header are the five boxes. While the window is narrow they are one column,
   as on the phone; from 820 points wide they go into two of the same width,
-  the class, the holiday and the homework on the left and the picker and the
-  day on the right, so the gap between them runs down from the person in
-  the header. The date and the sky stay where they are and the boxes scroll up
-  under them. The boxes can't be moved about here. A class in the day's list,
-  clicked, shows its homework in a popover.
+  at first the class, the holiday and the homework on the left and the picker
+  and the day on the right, so the gap between them runs down from the person
+  in the header. The date and the sky stay where they are and the boxes scroll
+  up under them. The boxes can be moved, as on the phone: press and hold one
+  and it lifts with a tap on the trackpad and a closed hand for a pointer,
+  follows the pointer — into the other column too — while the others slide
+  out of its way, and settles into the gap when let go
+  (`Mac/MacBoxes.swift`). Where each box is, is kept. The two columns are one
+  layout of all five boxes (`BoxColumns`), so a box keeps itself crossing
+  from one to the other and glides across. A class in the day's list,
+  clicked, shows its homework in a popover. A box is half a window wide, so
+  the phone's small print reads small across it: the day picker, the boxes'
+  titles ("NOW", "NEXT HOLIDAY", "HOMEWORK") and the day's title ("Today ·
+  Friday · Week 2") are larger on the Mac (`Font.boxTitle`, `Font.dayTitle`).
+- **Appearance**, in Settings, is the weather sky or Liquid Glass
+  (`Mac/MacBackdrop.swift`), picked from two pictures as System Settings
+  shows Light and Dark. Under glass the window is see-through, and the
+  desktop and the windows behind it shine through; the page takes the Mac's
+  own Light or Dark colours, the date and the weather keep the sky's halo of
+  light, and the sky's frames stop. Two sliders set the
+  glass: **Transparency**, from Solid to Clear, is how much of the window's
+  own colour is laid over what is behind; **Blur**, from Sharp to Soft, is
+  how blurred it is, its steps made to look even: measured over a
+  desktop-like picture, small text over big blocks of colour, at 22 radii,
+  each tenth of the slider takes away a tenth of the fine detail and the big
+  shapes averaged, up to a radius of 72 (`MacBackdrop.blurRadius`). Measured
+  over text alone at first, the curve had the text gone by four fifths of
+  the way and the big shapes, most of what a desktop is, changing all at
+  once in the last fifth. While either slider is dragged, Settings fades out of
+  the way, so the window behind can be seen as it changes, and the slider
+  alone stays: a copy of it on a capsule of glass, in a window of its own
+  laid exactly over the real one, moving as the drag moves the setting
+  while the pointer goes through to the real slider underneath. Let go, and
+  Settings comes back. Apple's glass comes only clear or frosted, and fading
+  one into the other left a sharp ghost of the desktop under a blurred one,
+  so the blur is the system's own behind-window blur, the one under a HUD,
+  with its strength set by hand (`BackdropBlur`): AppKit has no strength to
+  set, so the radius of the blur filter on its backdrop layer is changed,
+  by key path inside the filters the layer has — handed a new set of
+  filters, the layer kept them but the screen showed the old blur until
+  the changes stopped for a while, so a dragged slider never showed and the
+  window opened on the system's own blur for half a minute —
+  and the layer takes in what is behind at a finer size the lighter the blur
+  is, or the eighth it uses smears a light blur into a grey haze; the blur
+  always spreads over at least sixteen of the pixels taken in, as over
+  three it showed their blocks, a mosaic that shimmered over a video
+  behind. The layer counts what it takes in to a point, not to a pixel, so
+  its "whole" was half of a Retina screen, and a light blur turned fine
+  lines into stairs of two-pixel blocks; it now takes in at the screen's own
+  resolution (`backingScaleFactor`) when the blur is light. The
+  blur is set finer than the system's own — high quality, dithered, and
+  mixed in linear light as frosted glass mixes it — and the system's colour
+  boost after it (half again) is taken off: side by side, the system's own
+  left soft blotches in colours that looked daubed on, and this one diffuses
+  evenly. At no blur
+  there is none at all. The boxes on it are Liquid Glass. Clear Liquid
+  Glass over the whole window, for the bend along its edges, was taken out:
+  macOS draws glass brighter in the window in front and darker in one
+  behind, so with Settings open over the window, the glass being set there
+  was only ever seen darker than it would be. The header is on the same glass as the rest: a band of blur and colour of
+  its own behind it dimmed the top of the window. With Reduce Transparency
+  on, the glass is solid. It is the window itself that is made see-through
+  (`SeeThroughWindow`): SwiftUI draws over the window's own background. The
+  iPhone has no such choice, since an app there can't show the Home Screen
+  through itself.
 - **Setup** is the phone's — in the window the first time, and over it after
   that from the person at the top of the window or Settings › Change. The
   Mac keeps a profile of its own, as the watch can: an app group does not
@@ -589,9 +649,11 @@ The widgets do not show the weather and still use no network.
 - `Watch/` and `WatchWidget/` — the watch app and its Smart Stack widget.
   `Shared/ClassActivity.swift` is left out of both, since there is no
   ActivityKit on the watch.
-- `Mac/` — the Mac app: `MacPage.swift` is the window, `MenuBarClass.swift`
-  the menu bar's class and its panel, `MacSettings.swift` Settings, and
-  `MacModel.swift` what they share. It compiles `Page/`, `Shared/` and
+- `Mac/` — the Mac app: `MacPage.swift` is the window, `MacBoxes.swift` its
+  boxes and the moving of them, `MacBackdrop.swift` what is behind it (the
+  sky or glass) and the choice of it, `MenuBarClass.swift` the menu bar's
+  class and its panel, `MacSettings.swift` Settings, and `MacModel.swift`
+  what they share. It compiles `Page/`, `Shared/` and
   `Common/` too, leaving out `ClassActivity.swift` and `DeviceLink.swift`
   (no ActivityKit, no WatchConnectivity). Its widget, `TimetableMacWidget`,
   is `Widget/` without `ClassLiveActivity.swift`.

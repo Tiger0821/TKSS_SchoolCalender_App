@@ -5,20 +5,27 @@ import SwiftUI
    the next holiday, the homework, the ten-day picker and the day picked.
    They are the phone's own boxes (Page/), laid out for a window: in one
    column, as on the phone, while the window is narrow, and in two once there
-   is room for them, the class, the holiday and the homework on the left and
-   the day on the right. The date and the sky stay where they are, and the
+   is room for them, at first the class, the holiday and the homework on the
+   left and the day on the right; held and dragged, they go where they are
+   put, as on the phone. The date and the sky stay where they are, and the
    boxes scroll up under them. A class in the day's list, clicked, shows its
    homework.
 
-   Behind it all is the sky as it is outside, when the weather is known. The
-   person in the header opens setup again, and the gear that comes out of it
-   under the pointer opens Settings. */
+   Behind it all is the sky as it is outside, when the weather is known, or,
+   picked in Settings, Liquid Glass that the desktop shows through
+   (`MacBackdrop`). The person in the header opens setup again, and the gear
+   that comes out of it under the pointer opens Settings. */
 struct MacPage: View {
     /// The window's id, for opening it from the menu bar and from Settings.
     static let window = "timetable"
 
     @Environment(MacModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(MacBackdrop.key) private var backdropChoice = MacBackdrop.sky
+    @AppStorage(MacBackdrop.clearKey) private var clear = MacBackdrop.clearDefault
+    @AppStorage(MacBackdrop.blurKey) private var blur = MacBackdrop.blurDefault
+    /// Which box is where, as moved by hand.
+    @AppStorage(MacLayout.key) private var boxes = MacLayout.standard
     /// A cycle day (0-9) picked by hand; nil follows the clock.
     @State private var picked: Int?
     @State private var weather = WeatherModel()
@@ -33,10 +40,13 @@ struct MacPage: View {
        shorter point for point as they come, as the Weather app's is. */
     // the two lines' own height, and no more: with room to spare, the boxes sat well away under it
     private static let heroTall: CGFloat = 78
-    private static let heroShort: CGFloat = 36
+    // the one line's own height: at 36 it left a strip of empty sky between the line and the boxes
+    private static let heroShort: CGFloat = 26
     /// Room over the header, under the title bar, and in from each side of it.
     private static let heroTop: CGFloat = 14
     private static let heroInset: CGFloat = 10
+    /// How far in from that the one line sits once the header has gathered.
+    private static let gatheredInset: CGFloat = 48
 
     /// From this width there is room for the boxes in two columns.
     private static let twoColumns: CGFloat = 820
@@ -59,6 +69,13 @@ struct MacPage: View {
             }
         }
         .frame(minWidth: 440, minHeight: 600)
+        // under glass, the window is a pane the desktop shows through, behind setup as well as the page
+        .background {
+            if glass { GlassPane(clear: clear, blur: blur) }
+        }
+        .containerBackground(glass ? AnyShapeStyle(.clear) : AnyShapeStyle(.windowBackground), for: .window)
+        .background(SeeThroughWindow(isOn: glass))
+        .modifier(LooksActive(always: glass))
         .sheet(isPresented: $model.editing) {
             SetupView(existing: model.profile) { new in
                 model.use(new)
@@ -72,6 +89,8 @@ struct MacPage: View {
             ManageBacSignIn()
         }
     }
+
+    private var glass: Bool { backdropChoice == .glass }
 
     private func page(for profile: Profile) -> some View {
         TimelineView(.everyMinute) { context in
@@ -99,36 +118,24 @@ struct MacPage: View {
                 let collapse = Self.heroTall - Self.heroShort
                 let gathered = min(1, max(0, scrolled / collapse))
                 let heroHeight = Self.heroTall - collapse * gathered
-                // where the boxes go under the header: as far below it as they sit at rest
-                let edge = heroHeight + Self.heroTop + Self.spacing
+                // where the boxes go under the header: as far below it as they sit at rest, the gap closing
+                // up to ten points as the header gathers into its one line
+                let edge = heroHeight + Self.heroTop + Self.spacing - (Self.spacing - 10) * gathered
                 VStack(alignment: .leading, spacing: 0) {
                     ScrollView {
                       VStack(spacing: 0) {
                         // the header's room at rest; scrolled, the boxes come up into it
                         Color.clear
                             .frame(height: Self.heroTall + Self.heroTop)
-                        Group {
-                            if twoColumns {
-                                HStack(alignment: .top, spacing: Self.spacing) {
-                                    VStack(spacing: Self.spacing) {
-                                        nowCard.tucksUnder(edge, radius: 28)
-                                        holidayCard.tucksUnder(edge, radius: 28)
-                                        homeworkCard.tucksUnder(edge, radius: 28)
-                                    }
-                                    .frame(width: leftColumn)
-                                    VStack(spacing: Self.spacing) {
-                                        picker.tucksUnder(edge, radius: 24)
-                                        dayCard.tucksUnder(edge, radius: 28)
-                                    }
-                                }
-                            } else {
-                                VStack(spacing: Self.spacing) {
-                                    nowCard.tucksUnder(edge, radius: 28)
-                                    holidayCard.tucksUnder(edge, radius: 28)
-                                    picker.tucksUnder(edge, radius: 24)
-                                    dayCard.tucksUnder(edge, radius: 28)
-                                    homeworkCard.tucksUnder(edge, radius: 28)
-                                }
+                        // held and dragged, the boxes go where they are put (MacBoxes.swift)
+                        BoxBoard(layout: $boxes, twoColumns: twoColumns, leftWidth: leftColumn,
+                                 spacing: Self.spacing) { box, lifted in
+                            switch box {
+                            case .now: nowCard.tucksUnder(edge, radius: 28, unless: lifted)
+                            case .holiday: holidayCard.tucksUnder(edge, radius: 28, unless: lifted)
+                            case .homework: homeworkCard.tucksUnder(edge, radius: 28, unless: lifted)
+                            case .days: picker.tucksUnder(edge, radius: 24, unless: lifted)
+                            case .timetable: dayCard.tucksUnder(edge, radius: 28, unless: lifted)
                             }
                         }
                         .padding(.horizontal, Self.margin)
@@ -155,8 +162,9 @@ struct MacPage: View {
                 backdrop(scene, tint: snapshot.focus?.segment.tint ?? .accentColor)
                     .ignoresSafeArea()
             }
-            // every sky is dark at the top, so over one the page is always in its dark colours
-            .preferredColorScheme(scene == nil ? nil : .dark)
+            // every sky is dark at the top, so over one the page is always in its dark colours;
+            // glass takes the Mac's own, Light or Dark
+            .preferredColorScheme(glass || scene == nil ? nil : .dark)
         }
         .task {
             // look again every couple of minutes; each refresh decides whether it is time to fetch
@@ -187,12 +195,14 @@ struct MacPage: View {
        it goes, and the one-line form fades in as they go: the date and the
        clock at the left, the temperature and the conditions at the right. */
     private func hero(profile: Profile, isDay: Bool, gathered: CGFloat) -> some View {
-        ZStack(alignment: .top) {
+        // over the sky the words are white; under the glass, the page's own colours
+        let onSky = !glass && weather.current != nil
+        return ZStack(alignment: .top) {
             HStack(alignment: .top) {
-                DayHero(onSky: weather.current != nil)
+                DayHero(onSky: onSky)
                 Spacer(minLength: 24)
                 if let current = weather.current {
-                    WeatherHero(weather: current, isDay: isDay, onSky: true)
+                    WeatherHero(weather: current, isDay: isDay, onSky: onSky)
                 }
             }
             .opacity(max(0, 1 - gathered * 1.8))
@@ -207,16 +217,19 @@ struct MacPage: View {
                 skyWindow = CGRect(x: frame.minX, y: frame.minY, width: frame.width * 0.72 + 64, height: frame.height)
             }
             HStack(alignment: .firstTextBaseline) {
-                DayLine(onSky: weather.current != nil)
+                DayLine(onSky: onSky)
                 Spacer(minLength: 24)
                 if let current = weather.current {
-                    WeatherLine(weather: current, isDay: isDay)
+                    WeatherLine(weather: current, isDay: isDay, onSky: onSky)
                 }
             }
+            // drawn in toward the middle as the header gathers, a centimetre a side on a laptop's screen
+            .padding(.horizontal, Self.gatheredInset * gathered)
             .opacity(max(0, (gathered - 0.45) / 0.55))
             .allowsHitTesting(false)
         }
-        // a halo of light round the words (光暈): close and bright, then wide and faint
+        // a halo of light round the words (光暈), over the sky and the glass alike: close and bright, then
+        // wide and faint
         .shadow(color: .white.opacity(0.55), radius: 3)
         .shadow(color: .white.opacity(0.3), radius: 12)
         // whose timetable it is, between the day and the weather. Up in the title bar it was hard
@@ -228,10 +241,14 @@ struct MacPage: View {
     }
 
     /// What is behind the page: the sky when the weather is known, and
-    /// otherwise a wash of the colour of whatever is on.
+    /// otherwise a wash of the colour of whatever is on. Under glass,
+    /// nothing: the glass is behind the whole window, and the sky's frames
+    /// stop.
     @ViewBuilder
     private func backdrop(_ scene: SkyScene?, tint: Color) -> some View {
-        if let scene {
+        if glass {
+            Color.clear
+        } else if let scene {
             PixelSky(scene: scene, window: skyWindow)
         } else {
             LinearGradient(colors: [tint.opacity(0.28), .clear], startPoint: .top, endPoint: .center)
@@ -325,6 +342,7 @@ private struct DayLine: View {
 private struct WeatherLine: View {
     let weather: Weather
     let isDay: Bool
+    let onSky: Bool
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -336,7 +354,7 @@ private struct WeatherLine: View {
             Text("\(Image(systemName: weather.sky.symbol(isDay: isDay))) \(weather.sky.label(isDay: isDay))")
                 .font(.callout.weight(.medium))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(onSky ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         .lineLimit(1)
     }
 }
@@ -344,16 +362,17 @@ private struct WeatherLine: View {
 /* Whose timetable it is, as a person on glass that opens setup. Under the
    pointer it opens out into the name and the form: the glass stretches both
    ways from the middle, on a spring with a little give in it, as Apple's own
-   glass moves, and the words come up through a blur as it goes; the
-   trackpad gives a tap as it opens. Out of its far end comes the gear for
-   Settings, a drop of glass of its own that pulls away from it as water does
-   (the two are in one `GlassEffectContainer`), while the person stays where
-   it was. It opens as soon as the pointer comes, but is slow to let it go:
+   glass moves, and the words come up through a blur as it goes. Out of its
+   far end comes the gear for Settings, a drop of glass of its own that
+   pulls away from it as water does (the two are in one
+   `GlassEffectContainer`), while the person stays where it was. It opens as soon as the pointer comes, but is slow to let it go:
    a margin round it still counts as over it, and away from that it waits a
    moment before the gear runs back into it and it into a drop, so a pointer
    that overshoots on its way to the gear finds it still there. Under the
-   pointer the gear's own drop swells a little, the gear turns once, and
-   the trackpad gives a tap. */
+   pointer each drop swells a little: the person's all round, the gear
+   making room for it, and the gear's away from the person, the gear
+   turning once. The trackpad gives a tap each time the pointer comes onto
+   either of them. */
 private struct PersonButton: View {
     let profile: Profile
     /// Across, when it is a drop; the gear is as wide.
@@ -364,6 +383,9 @@ private struct PersonButton: View {
     @State private var open = false
     /// Closing it, once the pointer has been away for `grace`.
     @State private var leaving: Task<Void, Never>?
+    @State private var overPerson = false
+    /// One more each time the pointer comes onto the person, for the trackpad's tap.
+    @State private var personVisits = 0
     @State private var overGear = false
     /// One more each time the pointer comes onto the gear, which turns it once.
     @State private var gearTurns = 0
@@ -374,17 +396,21 @@ private struct PersonButton: View {
     private static let margin: CGFloat = 11
     private static let grace = Duration.milliseconds(420)
     private static let spring = Animation.spring(duration: 0.45, bounce: 0.3)
+    /// How much a drop grows under the pointer.
+    private var swell: CGFloat { size * 0.12 }
 
     var body: some View {
+        // wider by half the person's swell while it is swollen, so the gear keeps clear of it
+        let spacing = Self.gap + (overPerson ? swell / 2 : 0)
         GlassEffectContainer(spacing: Self.gap) {
-            HStack(spacing: Self.gap) {
+            HStack(spacing: spacing) {
                 person
                 if open {
                     gear
                 }
             }
             // as much again on the other side, so the person stays in the middle of the header
-            .padding(.leading, open ? size + Self.gap : 0)
+            .padding(.leading, open ? size + spacing : 0)
             // the pointer crossing from the person to the gear is still over them, and so is the
             // margin round them, which is taken back off again so nothing moves
             .padding(open ? Self.margin : 0)
@@ -401,6 +427,7 @@ private struct PersonButton: View {
                         withAnimation(Self.spring) {
                             open = false
                             // the gear goes before the pointer can be seen off it
+                            overPerson = false
                             overGear = false
                         }
                     }
@@ -408,8 +435,6 @@ private struct PersonButton: View {
             }
             .padding(open ? -Self.margin : 0)
         }
-        // a tap on the trackpad as it opens; none as it closes
-        .sensoryFeedback(.alignment, trigger: open) { _, opened in opened }
     }
 
     private var person: some View {
@@ -435,11 +460,22 @@ private struct PersonButton: View {
             .foregroundStyle(.white)
             .padding(.horizontal, open ? 14 : 0)
             .frame(minWidth: size, minHeight: size)
+            // swollen, the glass is really larger all round, the person and the words as they were
+            .padding(overPerson ? swell / 2 : 0)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .capsule)
         .glassEffectID("person", in: glass)
+        // in the room it had, so the header doesn't move under it
+        .padding(overPerson ? -swell / 2 : 0)
+        .onHover { hovering in
+            withAnimation(Self.spring) { overPerson = hovering }
+            if hovering { personVisits += 1 }
+        }
+        // a tap on the trackpad each time the pointer comes onto it, opening it or coming back
+        // from the gear; none as it goes
+        .sensoryFeedback(.alignment, trigger: personVisits)
         .focusEffectDisabled()
         .accessibilityLabel("\(profile.name), \(profile.form)")
         .accessibilityHint("Changes your name, form and classes")
@@ -450,7 +486,7 @@ private struct PersonButton: View {
     private var gear: some View {
         // swollen, the drop is really larger, the gear in its middle: scaled instead, the glass,
         // drawn by its container, grew from its top left corner and left the gear off to one side
-        let across = size * (overGear ? 1.12 : 1)
+        let across = size + (overGear ? swell : 0)
         return Button {
             openSettings()
         } label: {
@@ -470,11 +506,26 @@ private struct PersonButton: View {
             withAnimation(Self.spring) { overGear = hovering }
             if hovering { gearTurns += 1 }
         }
-        // a tap on the trackpad as the pointer comes onto it, as the person gives as it opens
+        // a tap on the trackpad as the pointer comes onto it, as the person gives
         .sensoryFeedback(.alignment, trigger: gearTurns)
         .focusEffectDisabled()
         .help("Settings")
         .accessibilityLabel("Settings")
+    }
+}
+
+/* Under glass the window keeps its look when another window is in front:
+   with Settings open over it, the glass being set there should be seen as
+   it will be. SwiftUI is told the window is in front, so the boxes and the
+   picked day keep their colours; the glass over the whole window, which
+   macOS itself drew darker behind another window, is gone (`GlassPane`).
+   Over the sky, the window takes macOS's way. */
+private struct LooksActive: ViewModifier {
+    let always: Bool
+    @Environment(\.appearsActive) private var active
+
+    func body(content: Content) -> some View {
+        content.environment(\.appearsActive, always || active)
     }
 }
 
@@ -506,7 +557,14 @@ private struct TucksUnder: ViewModifier {
 }
 
 private extension View {
-    func tucksUnder(_ edge: CGFloat, radius: CGFloat) -> some View {
-        modifier(TucksUnder(edge: edge, radius: radius))
+    /// Tucked under the header as it scrolls, unless it is the copy being
+    /// carried over the page, which is drawn whole.
+    @ViewBuilder
+    func tucksUnder(_ edge: CGFloat, radius: CGFloat, unless lifted: Bool) -> some View {
+        if lifted {
+            self
+        } else {
+            modifier(TucksUnder(edge: edge, radius: radius))
+        }
     }
 }
