@@ -206,7 +206,7 @@ struct HomeworkCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Homework", systemImage: "checklist")
-                    .font(.caption.weight(.bold))
+                    .font(.boxTitle)
                     .textCase(.uppercase)
                     .foregroundStyle(.indigo)
                 Spacer()

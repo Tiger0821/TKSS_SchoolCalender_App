@@ -125,7 +125,7 @@ struct HolidayCard: View {
             let countdown = Holidays.countdown(to: next, at: now)
             VStack(alignment: .leading, spacing: 12) {
                 Label(countdown == .today ? "Holiday today" : "Next holiday", systemImage: next.symbol)
-                    .font(.caption.weight(.bold))
+                    .font(.boxTitle)
                     .textCase(.uppercase)
                     .foregroundStyle(.red)
                 HStack(alignment: .center, spacing: 12) {
@@ -225,7 +225,7 @@ struct NowCard: View {
         VStack(alignment: .leading, spacing: 10) {
             if let current = snapshot.current {
                 Label("Now", systemImage: current.segment.symbol)
-                    .font(.caption.weight(.bold))
+                    .font(.boxTitle)
                     .textCase(.uppercase)
                     .foregroundStyle(current.segment.tint)
                 Text(current.segment.shortTitle)
@@ -249,7 +249,7 @@ struct NowCard: View {
             } else if let holiday = snapshot.holidayToday {
                 // a weekday with no school on it says so, and why, before it says what is next
                 Label("No class today", systemImage: holiday.symbol)
-                    .font(.caption.weight(.bold))
+                    .font(.boxTitle)
                     .textCase(.uppercase)
                     .foregroundStyle(.red)
                 Text(holiday.name)
@@ -266,7 +266,7 @@ struct NowCard: View {
                 daysOffAhead
             } else if let next = snapshot.upcoming.first {
                 Label("Next · \(snapshot.dayLabel)", systemImage: "arrow.forward.circle")
-                    .font(.caption.weight(.bold))
+                    .font(.boxTitle)
                     .textCase(.uppercase)
                     .foregroundStyle(next.segment.tint)
                 Text(next.segment.shortTitle)
@@ -452,6 +452,10 @@ struct DayCard: View {
     /// at the top of what is left, and the lessons go on up under the title.
     @Environment(\.tucked) private var tucked
     @State private var height: CGFloat = 0
+    /// The rows' time column, and how wide a time is drawn in it: the title
+    /// starts where the times do, under it.
+    var metrics = RowMetrics()
+    @State private var timeWidth: CGFloat = 0
 
     private static let weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
@@ -484,9 +488,9 @@ struct DayCard: View {
         return HStack(spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(lead == name ? name : lead ?? name)
-                    .font(.title3.weight(.bold))
+                    .font(.dayTitle)
                 Text((lead == nil || lead == name ? "" : name + " · ") + "Week \(day / 5 + 1)")
-                    .font(.subheadline)
+                    .font(.dayTitleDetail)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -505,7 +509,17 @@ struct DayCard: View {
         // a row of some height, so the title has room over and under it; and
         // the same with the button in it or not, so the list does not shift
         .frame(minHeight: 44)
-        .padding(.horizontal, 12)
+        // in line with the times down the rows, which sit at the right of their column: at the
+        // column's own left edge, the title stood out to the left of everything under it
+        .padding(.leading, 12 + max(0, metrics.time - timeWidth))
+        .padding(.trailing, 12)
+        .background(alignment: .leading) {
+            Text("00:00")
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .fixedSize()
+                .hidden()
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { timeWidth = $0 }
+        }
     }
 }
 
@@ -513,6 +527,36 @@ extension EnvironmentValues {
     /// How far a box has gone up under the header that the Mac's page tucks
     /// its boxes under: nought on the phone, whose page scrolls plainly.
     @Entry var tucked: CGFloat = 0
+}
+
+/* The boxes' titles, larger on a Mac: there a box is half a window wide,
+   and the phone's captions read small across it, in either backdrop. */
+extension Font {
+    /// A box's title in capitals: "NOW", "NEXT HOLIDAY", "HOMEWORK".
+    static var boxTitle: Font {
+        #if os(macOS)
+        .system(size: 14, weight: .bold)
+        #else
+        .caption.weight(.bold)
+        #endif
+    }
+
+    /// The day card's title, "Today", and what follows it, "Friday · Week 2".
+    static var dayTitle: Font {
+        #if os(macOS)
+        .system(size: 21, weight: .bold)
+        #else
+        .title3.weight(.bold)
+        #endif
+    }
+
+    static var dayTitleDetail: Font {
+        #if os(macOS)
+        .system(size: 14)
+        #else
+        .subheadline
+        #endif
+    }
 }
 
 extension Color {
