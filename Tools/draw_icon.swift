@@ -2,11 +2,14 @@ import AppKit
 
 /* Draws the app's icon: a pixel owl, close in, cross-eyed and in a red bow
    tie, on white — shaded as if lit from the upper left, and lifted in
-   layers — 1024 points square, for the phone app and the watch app alike.
+   layers — 1024 points square, for the phone app, the watch app and the Mac
+   app alike.
 
        swift Tools/draw_icon.swift
 
-   run from the top of the repository, writes it over both AppIcon.png files.
+   run from the top of the repository, writes it over both AppIcon.png files,
+   and the Mac's ten sizes of it into the Mac's icon set (the Mac rounds the
+   corners itself, as the phone does).
    The owl is a drawing of this project's own — a nod to the owl on the
    school's timetable app, and not a copy of it. It is made here rather than
    kept only as a picture so that it can be changed a square at a time: see
@@ -253,6 +256,30 @@ func icon() -> CGImage {
     return render(s)
 }
 
+/// The icon drawn down to `px` on a side, smoothly, for the Mac's smaller sizes.
+func reduced(_ image: CGImage, to px: Int) -> CGImage {
+    let c = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
+                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    c.interpolationQuality = .high
+    c.draw(image, in: CGRect(x: 0, y: 0, width: px, height: px))
+    return c.makeImage()!
+}
+
+/* A target is a PNG to write the icon to, or an icon set (the Mac's), which
+   is given the 16, 32, 128, 256 and 512 point sizes at 1x and 2x, named as
+   its Contents.json names them. */
 let targets = CommandLine.arguments.count > 1 ? Array(CommandLine.arguments.dropFirst())
-    : ["App/Assets.xcassets/AppIcon.appiconset/AppIcon.png", "Watch/Assets.xcassets/AppIcon.appiconset/AppIcon.png"]
-for target in targets { save(icon(), target) }
+    : ["App/Assets.xcassets/AppIcon.appiconset/AppIcon.png", "Watch/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+       "Mac/Assets.xcassets/AppIcon.appiconset"]
+let drawn = icon()
+for target in targets {
+    if target.hasSuffix(".appiconset") {
+        for points in [16, 32, 128, 256, 512] {
+            for scale in [1, 2] {
+                save(reduced(drawn, to: points * scale), "\(target)/icon_\(points)x\(points)\(scale == 2 ? "@2x" : "").png")
+            }
+        }
+    } else {
+        save(drawn, target)
+    }
+}

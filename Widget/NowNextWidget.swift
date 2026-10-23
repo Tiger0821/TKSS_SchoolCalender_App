@@ -3,7 +3,7 @@ import WidgetKit
 
 /* Now & Next: the class you're in, the minutes left, and what follows — on
    the Home Screen (small, medium) and the Lock Screen (inline, circular,
-   rectangular). */
+   rectangular), and on a Mac's desktop (small, medium). */
 struct NowNextWidget: Widget {
     let kind = "NowNext"
 
@@ -15,8 +15,13 @@ struct NowNextWidget: Widget {
         }
         .configurationDisplayName("Now & Next")
         .description("The class you're in, the time left, and what's next.")
+        #if os(iOS)
         .supportedFamilies([.systemSmall, .systemMedium,
                             .accessoryRectangular, .accessoryCircular, .accessoryInline])
+        #else
+        // a Mac has no Lock Screen to put the rest on
+        .supportedFamilies([.systemSmall, .systemMedium])
+        #endif
     }
 }
 
@@ -26,9 +31,11 @@ struct NowNextView: View {
 
     var body: some View {
         switch family {
+        #if os(iOS)
         case .accessoryInline: InlineView(snapshot: entry.snapshot)
         case .accessoryCircular: CircularView(snapshot: entry.snapshot)
         case .accessoryRectangular: RectangularView(snapshot: entry.snapshot)
+        #endif
         case .systemMedium: MediumView(snapshot: entry.snapshot)
         default: FocusBlock(snapshot: entry.snapshot).frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -67,6 +74,7 @@ struct MediumView: View {
 
 // MARK: - Lock Screen
 
+#if os(iOS)
 struct RectangularView: View {
     let snapshot: Snapshot
 
@@ -179,6 +187,8 @@ struct InlineView: View {
     }
 }
 
+#endif
+
 #Preview("Small", as: .systemSmall) {
     NowNextWidget()
 } timeline: {
@@ -194,6 +204,7 @@ struct InlineView: View {
     ClassEntry.sample(17, 0)
 }
 
+#if os(iOS)
 #Preview("Lock Screen", as: .accessoryRectangular) {
     NowNextWidget()
 } timeline: {
@@ -206,3 +217,4 @@ struct InlineView: View {
     ClassEntry.sample(9, 40)
     ClassEntry.sample(7, 30)
 }
+#endif

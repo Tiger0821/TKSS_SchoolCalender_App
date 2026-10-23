@@ -207,8 +207,10 @@ struct Backdrop: View {
 
     var body: some View {
         switch family {
+        #if os(iOS)
         case .accessoryCircular, .accessoryRectangular, .accessoryInline:
             Color.clear
+        #endif
         default:
             ZStack {
                 Rectangle().fill(.background)

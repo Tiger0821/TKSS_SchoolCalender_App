@@ -5,7 +5,9 @@ date, a clock, a countdown to Taiwan's next national holiday, and the weather
 outside as a pixel-art sky behind the page. One build serves the whole year
 group: the first time it opens it asks who you are and which classes are
 yours, and lays out your own timetable. Built with
-the iOS 27 SDK (Xcode 27); runs on iOS 26 and later.
+the iOS 27 SDK (Xcode 27); runs on iOS 26 and later. There is an Apple Watch
+app with it, and a Mac app with the same page in a window and the class that
+is on in the menu bar: see [On the Mac](#on-the-mac).
 
 The userscript it comes from:
 [ManageBac Reimagined](https://github.com/Tiger0821/ManageBac-Reimagined).
@@ -48,10 +50,12 @@ options, the questions follow.
 - The next national holiday: whole days while it is more than a day away, then
   hours, minutes and seconds. The three after it are listed underneath.
 - A picker for any of the ten days in the cycle, and that day's timetable.
+  Tap a class in it for its homework.
+- Your homework from ManageBac, soonest first — see [Homework](#homework).
 - The weather outside, painted behind it all as pixel art — see
   [Weather](#weather).
 
-The four boxes — class, holiday, day picker, timetable — can be put in any
+The five boxes — class, holiday, day picker, timetable, homework — can be put in any
 order: touch and hold one until it lifts, drag it, and the others slide out of
 its way. Hold it near the top or bottom of the screen and the page scrolls
 under it, so a box can travel further than one screen. The order is remembered
@@ -168,18 +172,21 @@ The limit to design within: the system saves a Live Activity's drawing to a
 file and silently shows nothing if it is over 2,000,000 bytes (1,953 KB), and
 what fills it is countdowns (about 40 KB each) and bars. iOS 27 saves the
 same drawing about an eighth larger than iOS 26, so it is the one to measure
-on. For 11B's ten days, measured on iOS 27.0 on 14 Oct 2026:
+on. For 11B's ten days, measured on iOS 27.0 on 22 Oct 2026:
 
 | | iOS 27.0 |
 |---|---|
-| lightest day (13 blocks) | 1,464 KB |
-| fullest day (16 blocks) | 1,777 KB |
+| lightest day (13 blocks) | 1,469 KB |
+| fullest day (16 blocks) | 1,790 KB |
 
 That is with the short breaks counting down on the Lock Screen, which added
 some 23 KB a break (the fullest day has five), and with the shutters and
 curtains as above, which between them weigh a little less than the masks
-did. iOS 26.5 has not been weighed since either; before, on 6 Oct, the same
-two days were 1,223 and 1,457 KB there.
+did. It is also with each subject's own few letters in the island. Chem,
+Bio, Eng A-2 and others had all been "Club", so two of them in a row were
+one stage of the label; telling them apart put a stage back on four of the
+ten days, some 5 to 14 KB each. iOS 26.5 has not been weighed since
+either; before, on 6 Oct, the same two days were 1,223 and 1,457 KB there.
 
 A day of more than sixteen blocks drops the island's minutes, which is some
 300 KB lighter (`affordsMinutes`). Anything added to the Live Activity should be weighed the
@@ -248,6 +255,119 @@ the day on a watch whose phone has never had Timetable opened.
   be rid of the other tile turn Timetable off in the Watch app on the phone
   under Smart Stack › Live Activities.
 
+## On the Mac
+
+`Mac/` is a Mac app made from the phone's own parts: the page, setup, the
+widgets and the reminders are the phone's, and what the phone does on the
+Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
+
+- **The window** is the phone's page, its top laid out for a wide window.
+  Whose timetable it is is a person on glass in the middle of the header,
+  which opens setup. Under the pointer it stretches into a capsule with the
+  name and the form, on a spring as Apple's glass moves, the words coming up
+  through a blur, and the trackpad gives a tap as it opens; out of its far
+  end the gear for Settings comes away as a drop of glass of its own, the
+  two pulling apart as water does, and the person stays where it was
+  (`PersonButton`). It is quick to open and slow to close: a margin round
+  it still counts as over it, and it waits a moment after the pointer has
+  gone, so a pointer that overshoots the gear finds it still there. Under
+  the pointer the gear's drop swells a little, the gear turns once, and the
+  trackpad gives a tap. Beside it the day and the
+  weather face each other across the sky, line for line — the date large,
+  and the weekday and the clock under it, at the left; the temperature
+  large, and the conditions, the high and low and the place under it, at the
+  right — with the sun or the moon between them, all in white with a soft
+  halo. Scrolled, the boxes come up into the header and it gives way to
+  them, as the Weather app's does: the large lines fade and the header
+  gathers into one line, the date and the clock at the left and "24°C |
+  Drizzle" at the right. The boxes then go on up under it the way the
+  Weather app's cards do, not fading but cut off at the top: each one's top
+  edge stays just under the header, rounded as it was, and the box grows
+  shorter until it is gone (`TucksUnder`). The day's card keeps its title
+  at the top of what is left while its lessons slide up beneath it. Under the
+  header are the five boxes. While the window is narrow they are one column,
+  as on the phone; from 820 points wide they go into two of the same width,
+  the class, the holiday and the homework on the left and the picker and the
+  day on the right, so the gap between them runs down from the person in
+  the header. The date and the sky stay where they are and the boxes scroll up
+  under them. The boxes can't be moved about here. A class in the day's list,
+  clicked, shows its homework in a popover.
+- **Setup** is the phone's — in the window the first time, and over it after
+  that from the person at the top of the window or Settings › Change. The
+  Mac keeps a profile of its own, as the watch can: an app group does not
+  reach from one device to another, and the free team this is signed with
+  has no iCloud to carry it across. So the Mac is set up on its own.
+- **The menu bar** says what the Dynamic Island says: the class that is on
+  and the minutes left of it ("Econ 14 min"), to the end of a double period; in
+  a short break, and before the first bell, the class to come and the time it
+  starts; out of school hours, only a mortarboard. Clicked, it opens the Now
+  box, with the ways to the window, to Settings, and out. It is the app's own,
+  not a Live Activity, and turns over on the minute by a clock the app keeps
+  (`MacModel`). A Mac with the iPhone near it also shows the phone's Live
+  Activity in its menu bar; the switch in Settings takes this one away if two
+  are too many.
+- **Closing the window** leaves Timetable running in the menu bar, keeping
+  the reminders topped up; Quit is in the panel. **Open at login**, in
+  Settings, has it there from the morning on.
+- **Settings** is a window of its own, as on any Mac (⌘, or the gear by the
+  clock): whose timetable it is, the menu bar, opening at login, the
+  reminders, and where everything comes from.
+- **Widgets** — Now & Next (small, medium), Today (large) and Holiday
+  Countdown (small, medium) — are the phone's, from the same `Widget/` folder
+  built again for the Mac. Right-click the desktop › Edit Widgets › search
+  "Timetable". The Lock Screen sizes and the Live Activity are left out of the
+  Mac's build (`#if os(iOS)`), since a Mac has neither.
+- **Reminders** are laid down on the Mac as on the phone, some four school
+  days ahead, and topped up each new day the app is running and each time the
+  Mac wakes. They are the Mac's own: where the phone or the watch is
+  reminding as well, each of them says so.
+- **The sky** is the same. The Mac is asked for its location the older way,
+  with a `CLLocationManager`, since there is no `CLServiceSession` on macOS.
+
+To run it, pick the **TimetableMac** scheme and My Mac, and press Run. It has
+the phone's bundle id (`com.tigercho.ManageBacTimetable`, and `.Widget` for
+its widget) — an iPhone app and a Mac app may share one — and the same app
+group, so the App IDs the team already has cover it; Xcode makes Mac profiles
+for them the first time, and registers the Mac. Those last seven days on the
+free team, as the phone's do, and the app has to be built again after that.
+
+## Homework
+
+Each class's homework comes from the school's ManageBac
+(kueishan.managebac.com). Tap or click a class in the day's list and what is
+set for it shows: each task due from today on, with when it is due (in red by
+the end of tomorrow), what kind it is ("Quiz", "Homework", 個人口試 IO), the
+first few lines of what it says, and an arrow that opens it in ManageBac. A
+class with something due in the week ahead has a small count at the end of its
+row. The **Homework** box lists the six due soonest across every class.
+
+- **Signing in** is on ManageBac's own page, in a sheet inside the app
+  (`ManageBacSignIn`): the password goes to ManageBac and the app never sees
+  it. Tick "Remember me for 30 days" on that page, or the session ends when
+  the app quits; after the thirty days the box says "Signed out" and asks
+  again. The iPhone and the Mac are each signed in on their own.
+- **Reading** is done from inside a ManageBac page, as the userscript's "Due
+  today" does it: the calendar page is opened out of sight with the session,
+  and from there the app fetches `/student/events.json` (every task, its due
+  time, its kind, and a link that names its class), reads the class names
+  from the page's sidebar, and takes the address of the "Subscribe to
+  Calendar" feed for the tasks' descriptions. Asked from outside the page,
+  with copies of the session's cookies, ManageBac sent every request to its
+  sign-in page. It looks again every ten minutes while the app is open, and
+  keeps what it read for next time.
+- **The calendar feed on its own** is not enough: it has each task's title,
+  due time and description, but not which class it is for. A third of one
+  student's tasks were due at the very minute one of their lessons began;
+  the rest could have been anyone's.
+- **Matching** ManageBac's classes ("Economics", "English LIterature", "HS G11
+  Guidance") to the timetable's ("DP Econ", "Eng Lit", the two Guidance
+  slots) goes by the subject in the name (`Homework.describes`). A revision
+  class has the homework of the class it is for. There is nothing to set:
+  every one of the thirteen classes of the first student to sign in found
+  its own.
+
+The school's address is `ManageBac.school` in `Page/ManageBac.swift`.
+
 ## Reminders
 
 Fifteen minutes and five minutes before each class starts, a notification
@@ -273,10 +393,10 @@ your team the first time it signs them.
 Building it under a different Apple ID — a classmate building their own copy —
 means changing the bundle id `com.tigercho.ManageBacTimetable` (and the
 widget's `.Widget` id under it) to something of their own, and the app group
-with it, in three places: `Profile.group` in `Shared/Profile.swift`, and the
-two `.entitlements` files in `App/` and `Widget/`. The group id has to start
-with `group.` and be the same in all three, or the widgets won't see the
-profile.
+with it: in `Profile.group` in `Shared/Profile.swift`, the two
+`.entitlements` files in `App/` and `Widget/`, and for the Mac the two in
+`Mac/`. The group id has to start with `group.` and be the same in all of
+them, or the widgets won't see the profile.
 
 ## When the school changes the timetable
 
@@ -370,9 +490,22 @@ day's high and low on glass in its corner.
   twilight to night on its own between readings.
 - Over a sky the page is always in its dark colours, since every sky is dark
   at the top where the date is.
-- With Reduce Motion on, the sky is painted once and left still.
+- With Reduce Motion on, the sky is painted once and left still. On the Mac
+  it is held still under Mission Control and App Exposé, and goes on from
+  where it stopped as soon as the window starts to grow back: nothing tells
+  a window they are up, so the sky looks four times a second for the Dock's
+  window over it, and twenty while it is there.
+- The clouds are heaped cumulus, nine shapes of them, lit from the upper left
+  in four tones and stippled between; they ride at three depths, the far ones
+  small, a little hazy and slow, the near ones big and quicker, all of them
+  solid, so they pass each other on the wind. A cloud moves half a pixel at a time, which keeps
+  it pixel art and still lets it glide.
 - Nothing is an image file. `PixelSky.swift` paints each frame into a small
-  grid of pixels, fifteen times a second, and scales it up unsmoothed.
+  grid of pixels, fifteen times a second, and scales it up unsmoothed. On
+  the phone and the Mac each frame goes straight onto a layer of its own
+  (`SkyLayer`), out of SwiftUI's sight: handed to SwiftUI, every frame had
+  the whole window worked out again, and the Mac app sat at a third of a
+  core where it now sits at about two per cent.
 
 To see a sky without waiting for the weather, launch with the argument
 `-demoWeather` and a sky and a time of day — `-demoWeather thunderstorm-night`,
@@ -385,23 +518,29 @@ The widgets do not show the weather and still use no network.
 
 ## Layout
 
-- `Shared/` — the timetable and its styling; compiled into both targets.
+- `Shared/` — the timetable and its styling; compiled into every target.
   `TimetableData.swift` is the rows for each form, `Profile.swift` is whose
   timetable it is, and `Timetable.swift` lays one person's fortnight out.
   `ClassActivity.swift` is a day as the Live Activity carries it.
-- `App/` — the app: date and clock, Now card, holiday card, the ten-day
-  picker, the day's timetable. `SetupView.swift` is setup.
-  `ReorderableStack.swift` is the hold-and-drag reordering, edge scrolling
+- `App/` — the phone app: the page, laid out in one column, with the settings
+  off its edge. `ReorderableStack.swift` is the hold-and-drag reordering, edge scrolling
   included. `SettingsPanel.swift` is the settings page and the edge swipe that
   brings it in. `ClassActivityManager.swift` starts and books the Live
   Activity, `LockScreenSettings.swift` is its switch, and
   `ClassActivityIntent.swift` is the Shortcuts action.
+- `Page/` — what the phone and the Mac both put on the page, in
+  `PageParts.swift`: date and clock, the sky strip, Now card, holiday card,
+  the ten-day picker and the day's card. `SetupView.swift` is setup, for both.
+  `ManageBac.swift` signs in to ManageBac and reads the homework, and
+  `HomeworkViews.swift` shows it: a class's list, the Homework box, the
+  sign-in sheet and the rows in Settings.
 - `Tools/` — `update_timetable.py`, which rebuilds the rows from the school's
   published timetable, and `draw_icon.swift`, which draws the app's icon (a
-  pixel owl in a red bow tie, on white, shaded and lifted in layers) into both asset catalogues.
+  pixel owl in a red bow tie, on white, shaded and lifted in layers) into the
+  three asset catalogues.
 - `Widget/` — the widget extension: the widgets, and in
   `ClassLiveActivity.swift` the Live Activity's views.
-- `Common/` — what the phone app and the watch app share but the widgets do
+- `Common/` — what the apps (phone, watch and Mac) share but the widgets do
   not: `Weather.swift` and `PixelSky.swift`, `ClassReminders.swift`,
   `Picking.swift`, which is what a pick in setup does to the profile on
   either, and `DeviceLink.swift`, which carries the profile from phone to
@@ -409,6 +548,12 @@ The widgets do not show the weather and still use no network.
 - `Watch/` and `WatchWidget/` — the watch app and its Smart Stack widget.
   `Shared/ClassActivity.swift` is left out of both, since there is no
   ActivityKit on the watch.
+- `Mac/` — the Mac app: `MacPage.swift` is the window, `MenuBarClass.swift`
+  the menu bar's class and its panel, `MacSettings.swift` Settings, and
+  `MacModel.swift` what they share. It compiles `Page/`, `Shared/` and
+  `Common/` too, leaving out `ClassActivity.swift` and `DeviceLink.swift`
+  (no ActivityKit, no WatchConnectivity). Its widget, `TimetableMacWidget`,
+  is `Widget/` without `ClassLiveActivity.swift`.
 
 The folders are synchronised groups, so a file dropped into one in Finder or
 Xcode is picked up by that folder's targets without editing the project.

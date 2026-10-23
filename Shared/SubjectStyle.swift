@@ -41,6 +41,11 @@ struct Tone: Sendable {
             let hex = traits.userInterfaceStyle == .dark ? dark : light
             return UIColor(red: Self.part(hex, 16), green: Self.part(hex, 8), blue: Self.part(hex, 0), alpha: 1)
         })
+        #elseif os(macOS)
+        Color(nsColor: NSColor(name: nil) { [light, dark] appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: Self.part(hex, 16), green: Self.part(hex, 8), blue: Self.part(hex, 0), alpha: 1)
+        })
         #else
         // the watch is always dark
         onDark
@@ -119,21 +124,32 @@ extension Segment {
 }
 
 extension Segment {
-    /// Four letters or so, for the middle of a circular widget.
+    /* Four letters or so, for the middle of a circular widget and the
+       Dynamic Island. A subject whose name cuts down well is cut down — the
+       first word of it, to four letters: Chem, Bio, Phys, Hist, Econ — and
+       the rest are given here. It was once a list of one person's subjects
+       with "Club" for anything else, so Chemistry was "Club" in the island.
+
+       The Live Activity goes by these in telling a double period from two
+       classes in a row, so classes one person can take together must not
+       share one. A revision class does share its subject's. */
     var abbreviation: String {
         guard let subject = lessons.first?.subject else { return title }
         switch subject {
         case let s where s.hasPrefix("DP Chi"): return "Chi"
-        case "DP Eng B-2": return "EngB"
+        case let s where s.hasPrefix("DP Eng A"): return "EngA"
+        case let s where s.hasPrefix("DP Eng B"): return "EngB"
         case "Eng Lit": return "Lit"
         case let s where s.hasPrefix("DP MA"): return "Math"
         case "DP Comp. Sc.": return "CS"
-        case "DP Econ": return "Econ"
         case "DP Bus Man": return "BM"
+        case let s where s.hasPrefix("DP V. Arts"): return "Art"
+        case let s where s.hasPrefix("DP Psych"): return "Psy"
         case let s where s.hasPrefix("DP TOK"): return "TOK"
         case Timetable.core: return "Core"
         case let s where s.hasPrefix("G:") || s == "Guidance": return "G"
-        default: return "Club"
+        case let s where s.hasSuffix("Clubs"): return "Club"
+        default: return String(Timetable.shortName(subject).prefix { $0 != " " }.prefix(4))
         }
     }
 }
