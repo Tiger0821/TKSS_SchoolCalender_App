@@ -592,15 +592,21 @@ struct PixelSky: View {
     /* Whether Timetable is the app in use: behind another app, the sky goes
        on at a few frames a second, as nobody is watching it closely. The
        app and not the window, as the window's own state counted a sheet
-       over it — setup — as being elsewhere, and the sky under it slowed. */
+       over it — setup — as being elsewhere, and the sky under it slowed.
+       Mission Control counts as another app, the Dock's, though the window
+       is there to be looked at; so there the sky goes at its full rate
+       whatever this says (`SkyView`). */
     @State private var appActive = NSApplication.shared.isActive
     #endif
+
+    /// Frames a second while the sky is being looked at.
+    private static let fullRate: Double = 15
 
     private var frameRate: Double {
         #if os(macOS)
         if !appActive { return 4 }
         #endif
-        return 15
+        return Self.fullRate
     }
 
     var body: some View {
@@ -629,7 +635,7 @@ struct PixelSky: View {
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
             .clipped()
             #else
-            SkyLayer(painter: painter, pixel: pixel, rate: still ? 0 : frameRate)
+            SkyLayer(painter: painter, pixel: pixel, rate: still ? 0 : frameRate, fullRate: still ? 0 : Self.fullRate)
                 .frame(width: proxy.size.width, height: proxy.size.height)
             #endif
         }
@@ -666,14 +672,17 @@ struct SkyLayer: PlatformRepresentable {
     let pixel: CGFloat
     /// Frames a second; nought for one frame, left still.
     let rate: Double
+    /// Frames a second when it is looked at whatever app is in use: under
+    /// Mission Control.
+    let fullRate: Double
 
     #if os(macOS)
     func makeNSView(context: Context) -> SkyView { SkyView() }
-    func updateNSView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate) }
+    func updateNSView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate, fullRate: fullRate) }
     static func dismantleNSView(_ view: SkyView, coordinator: ()) { view.stop() }
     #else
     func makeUIView(context: Context) -> SkyView { SkyView() }
-    func updateUIView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate) }
+    func updateUIView(_ view: SkyView, context: Context) { view.show(painter, pixel: pixel, rate: rate, fullRate: fullRate) }
     static func dismantleUIView(_ view: SkyView, coordinator: ()) { view.stop() }
     #endif
 }
@@ -685,6 +694,7 @@ final class SkyView: PlatformView {
     /// Frames a second as asked for, and as the timer goes: nought while
     /// the sky is held still.
     private var rate = 0.0
+    private var fullRate = 0.0
     private var running = 0.0
     private var timer: Timer?
     /// The sky's own clock: the time, less however long it has been held
@@ -699,6 +709,8 @@ final class SkyView: PlatformView {
     /// and whether it has grown back from that: Mission Control is going.
     private var shrunk: CGFloat?
     private var leaving = false
+    /// Since when Mission Control has been up over the window.
+    private var coveredSince: Date?
     #endif
 
     init() {
@@ -730,13 +742,14 @@ final class SkyView: PlatformView {
     }
     #endif
 
-    func show(_ painter: SkyPainter, pixel: CGFloat, rate: Double) {
+    func show(_ painter: SkyPainter, pixel: CGFloat, rate: Double, fullRate: Double) {
         self.painter = painter
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         picture.frame = CGRect(x: 0, y: 0, width: CGFloat(painter.width) * pixel, height: CGFloat(painter.height) * pixel)
         CATransaction.commit()
         self.rate = rate
+        self.fullRate = fullRate
         #if os(macOS)
         keepLookout()
         #endif
@@ -747,7 +760,12 @@ final class SkyView: PlatformView {
     /// Sets the timer going at the rate asked for, or stops it while the
     /// sky is held still.
     private func keepTime() {
-        let wanted = heldSince == nil ? rate : 0
+        var wanted = rate
+        #if os(macOS)
+        // shown under Mission Control, it is being looked at, though the Dock is the app in use
+        if coveredSince != nil, rate > 0 { wanted = max(rate, fullRate) }
+        #endif
+        if heldSince != nil { wanted = 0 }
         guard wanted != running || (wanted > 0 && timer == nil) else { return }
         timer?.invalidate()
         timer = nil
@@ -792,18 +810,22 @@ final class SkyView: PlatformView {
 
     #if os(macOS)
     /* Under Mission Control and App Exposé the window is one small picture
-       among the others, and its sky is held still. Nothing tells a window
-       they have come up: what shows it is the Dock's own window, put up
-       over the whole screen and so over this one (Launchpad's is the same,
-       and the sky is out of sight under that too). So while the sky is
-       going, the windows in front of this one are looked through for the
-       Dock's — about a seventh of a millisecond, where all the screen's
-       windows took twenty times as long — four times a second, and twenty
-       while it is there. The sky is let go as soon as the window starts to
-       grow back to its own size: the Dock's window stays on to the end, and
-       waiting for it, the sky came back still for half a second. */
+       among the others. Its sky goes on there as it does anywhere — the
+       person wanted to see it moving in the picture — but left there three
+       minutes it is held still, and goes on from where it stopped once the
+       window is back. Nothing tells a window they have come up: what shows
+       it is the Dock's own window, put up over the whole screen and so over
+       this one (Launchpad's is the same). So while the sky is going, the
+       windows in front of this one are looked through for the Dock's —
+       about a seventh of a millisecond, where all the screen's windows took
+       twenty times as long — four times a second, and twenty while the sky
+       is held. It is let go as soon as the window starts to grow back to
+       its own size: the Dock's window stays on to the end, and waiting for
+       it, the sky came back still for half a second. */
     private static let watching: TimeInterval = 0.25
     private static let closely: TimeInterval = 0.05
+    /// How long under Mission Control before the sky is held.
+    private static let patience: TimeInterval = 180
 
     private func keepLookout() {
         let wanted = window != nil && rate > 0
@@ -848,12 +870,19 @@ final class SkyView: PlatformView {
     }
 
     private func settle(covered: Bool) {
-        if !covered {
+        if covered {
+            if coveredSince == nil { coveredSince = .now }
+        } else {
+            coveredSince = nil
             shrunk = nil
             leaving = false
         }
-        hold(covered && !leaving)
-        let interval = covered ? Self.closely : Self.watching
+        let waited = coveredSince.map { Date.now.timeIntervalSince($0) >= Self.patience } ?? false
+        hold(covered && waited && !leaving)
+        // up to the full rate as Mission Control comes, and back as it goes
+        keepTime()
+        // closely only while it is held, to let it go the moment Mission Control goes
+        let interval = heldSince != nil ? Self.closely : Self.watching
         if let lookout, lookout.timeInterval != interval { look(every: interval) }
     }
 

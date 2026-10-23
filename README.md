@@ -526,10 +526,13 @@ day's high and low on glass in its corner.
 - Over a sky the page is always in its dark colours, since every sky is dark
   at the top where the date is.
 - With Reduce Motion on, the sky is painted once and left still. On the Mac
-  it is held still under Mission Control and App Exposé, and goes on from
-  where it stopped as soon as the window starts to grow back: nothing tells
-  a window they are up, so the sky looks four times a second for the Dock's
-  window over it, and twenty while it is there.
+  it goes on moving under Mission Control and App Exposé, at its full
+  fifteen frames a second (they make the Dock the app in use, and behind
+  another app the sky goes at four), but left there three minutes it is
+  held still, and goes on from where it stopped as soon
+  as the window starts to grow back: nothing tells a window they are up, so
+  the sky looks four times a second for the Dock's window over it, and
+  twenty while it is held.
 - The clouds are heaped cumulus, nine shapes of them, lit from the upper left
   in four tones and stippled between; they ride at three depths, the far ones
   small, a little hazy and slow, the near ones big and quicker, all of them
