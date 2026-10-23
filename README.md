@@ -1,4 +1,4 @@
-# Timetable (iOS)
+# Timetable
 
 The userscript's timetable dock as an iPhone app with widgets, plus today's
 date, a clock, a countdown to Taiwan's next national holiday, and the weather
@@ -11,6 +11,27 @@ is on in the menu bar: see [On the Mac](#on-the-mac).
 
 The userscript it comes from:
 [ManageBac Reimagined](https://github.com/Tiger0821/ManageBac-Reimagined).
+
+## Download
+
+**[Download the code (ZIP)](https://github.com/Tiger0821/TKSS_SchoolCalender_App/archive/refs/heads/main.zip)**
+— the iPhone, the Apple Watch and the Mac together. The three share most of
+their code, so none of them builds from its own folder alone.
+
+There is no app here to install as it is: an app that opens on someone
+else's iPhone, Apple Watch or Mac has to be signed through Apple's paid
+Developer Program, and these are signed with a free Apple ID. So each person
+builds their own copy, on a Mac with Xcode 27:
+
+1. Unzip the download and open `ManageBacTimetable.xcodeproj`.
+2. At the top of Xcode's window pick what to build and where:
+   **ManageBacTimetable** and your iPhone, **TimetableWatch** and your Apple
+   Watch, or **TimetableMac** and My Mac.
+3. Sign in with your Apple ID (Xcode → Settings → Accounts), and change the
+   bundle id and the app group to your own, as [Run it](#run-it) says.
+4. Press Run.
+
+On a free Apple ID each copy opens for seven days; build it again after that.
 
 ## Setup
 
@@ -383,20 +404,25 @@ either app is opened.
 
 ## Run it
 
-Open `ManageBacTimetable.xcodeproj`, pick a simulator, and press Run.
+Open `ManageBacTimetable.xcodeproj`, pick a scheme — **ManageBacTimetable**
+for the iPhone, **TimetableWatch** for the Apple Watch, **TimetableMac** for
+the Mac — and a simulator or My Mac, and press Run.
 
-On your own iPhone: Xcode → Settings → Accounts, sign in with your Apple ID,
-then select the project → each of the two targets → Signing & Capabilities →
-Team. Both targets have the App Groups capability, which Xcode registers for
+On your own iPhone or watch: Xcode → Settings → Accounts, sign in with your
+Apple ID, then select the project → each target → Signing & Capabilities →
+Team. Every target has the App Groups capability, which Xcode registers for
 your team the first time it signs them.
 
 Building it under a different Apple ID — a classmate building their own copy —
-means changing the bundle id `com.tigercho.ManageBacTimetable` (and the
-widget's `.Widget` id under it) to something of their own, and the app group
-with it: in `Profile.group` in `Shared/Profile.swift`, the two
-`.entitlements` files in `App/` and `Widget/`, and for the Mac the two in
-`Mac/`. The group id has to start with `group.` and be the same in all of
-them, or the widgets won't see the profile.
+means changing the bundle id `com.tigercho.ManageBacTimetable` to something of
+their own, with the ids under it (`.Widget`, `.watchkitapp` and
+`.watchkitapp.Widget`) and the watch's companion app id, which is the phone's
+(`WKCompanionAppBundleIdentifier` in the watch targets' build settings). The
+app group changes with it: in `Profile.group` in `Shared/Profile.swift` and in
+every target's `.entitlements` file — one each in `App/`, `Widget/`, `Watch/`
+and `WatchWidget/`, and two in `Mac/`. The group id has to start with
+`group.` and be the same in all of them, or the widgets won't see the
+profile.
 
 ## When the school changes the timetable
 
