@@ -25,8 +25,8 @@ builds their own copy, on a Mac with Xcode 27:
 
 1. Unzip the download and open `ManageBacTimetable.xcodeproj`.
 2. At the top of Xcode's window pick what to build and where:
-   **ManageBacTimetable** and your iPhone, **TimetableWatch** and your Apple
-   Watch, or **TimetableMac** and My Mac.
+   **TimeTableIPHONE** and your iPhone, **TimeTableWATCH** and your Apple
+   Watch, or **TimeTableMAC** and My Mac.
 3. Sign in with your Apple ID (Xcode → Settings → Accounts), and change the
    bundle id and the app group to your own, as [Run it](#run-it) says.
 4. Press Run.
@@ -345,7 +345,7 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
 - **The sky** is the same. The Mac is asked for its location the older way,
   with a `CLLocationManager`, since there is no `CLServiceSession` on macOS.
 
-To run it, pick the **TimetableMac** scheme and My Mac, and press Run. It has
+To run it, pick the **TimeTableMAC** scheme and My Mac, and press Run. It has
 the phone's bundle id (`com.tigercho.ManageBacTimetable`, and `.Widget` for
 its widget) — an iPhone app and a Mac app may share one — and the same app
 group, so the App IDs the team already has cover it; Xcode makes Mac profiles
@@ -404,9 +404,12 @@ either app is opened.
 
 ## Run it
 
-Open `ManageBacTimetable.xcodeproj`, pick a scheme — **ManageBacTimetable**
-for the iPhone, **TimetableWatch** for the Apple Watch, **TimetableMac** for
-the Mac — and a simulator or My Mac, and press Run.
+Open `ManageBacTimetable.xcodeproj`, pick a scheme — **TimeTableIPHONE**
+for the iPhone, **TimeTableWATCH** for the Apple Watch, **TimeTableMAC** for
+the Mac — and a simulator or My Mac, and press Run. Those three are the only
+schemes: each builds its app with its widgets inside, and Xcode is told not
+to make one of its own for every target. The iPhone app doesn't offer "My Mac
+(Designed for iPad)", as the Mac has an app of its own.
 
 On your own iPhone or watch: Xcode → Settings → Accounts, sign in with your
 Apple ID, then select the project → each target → Signing & Capabilities →
