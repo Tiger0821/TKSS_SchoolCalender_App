@@ -34,8 +34,26 @@ struct SetupView: View {
         var first = Profile.Club(subject: "", name: "")
         var splits = false
         var second = Profile.Club(subject: "", name: "")
+        /// Whether each club's teacher is typed rather than picked from the list.
+        var firstTyped = false
+        var secondTyped = false
         var id: String { subject }
     }
+
+    /* The teachers the timetable has in a club slot, in its order: in one
+       week, or in either when the club is the same both weeks. The school
+       publishes who runs the clubs but not what they are called, so the
+       name is typed and the teacher is picked, or typed when they are not
+       on the list ("Custom"). */
+    private func teachers(of subject: String, week: Int?) -> [String] {
+        var seen = Set<String>()
+        return Timetable.offered(to: draft.form)
+            .filter { lesson in lesson.subject == subject && (week.map { $0 == lessonWeek(lesson) } ?? true) }
+            .flatMap(\.staff)
+            .filter { seen.insert($0).inserted }
+    }
+
+    private func lessonWeek(_ lesson: Lesson) -> Int { lesson.day / 5 }
 
     private var catalog: Catalog { Timetable.catalog(for: draft.form) }
 
@@ -215,14 +233,16 @@ struct SetupView: View {
                 }
             }
         case .clubs:
-            question("What are your clubs?", "The timetable only says \u{201C}Service Clubs\u{201D} and \u{201C}Academic Clubs\u{201D}. Put in what yours are called, or leave them blank.") {
+            question("What are your clubs?", "The timetable only says \u{201C}Service Clubs\u{201D} and \u{201C}Academic Clubs\u{201D}. Put in what yours are called and pick the teacher, or leave them blank.") {
                 ForEach($clubs) { $club in
                     VStack(alignment: .leading, spacing: 12) {
                         Text(club.subject)
                             .font(.headline)
-                        clubFields(club.splits ? "Week 1 club" : "Club name", $club.first)
+                        clubFields(club.splits ? "Week 1 club" : "Club name", $club.first, typed: $club.firstTyped,
+                                   teachers: teachers(of: club.subject, week: club.splits ? 0 : nil))
                         if club.splits {
-                            clubFields("Week 2 club", $club.second)
+                            clubFields("Week 2 club", $club.second, typed: $club.secondTyped,
+                                       teachers: teachers(of: club.subject, week: 1))
                         }
                         Toggle("A different club in Week 2", isOn: $club.splits.animation(.snappy))
                             .font(.subheadline)
@@ -281,7 +301,7 @@ struct SetupView: View {
     }
 
     /// A club's name, and under it where it meets and who runs it; only the name is needed.
-    private func clubFields(_ prompt: String, _ club: Binding<Profile.Club>) -> some View {
+    private func clubFields(_ prompt: String, _ club: Binding<Profile.Club>, typed: Binding<Bool>, teachers: [String]) -> some View {
         VStack(spacing: 0) {
             TextField(prompt, text: club.name)
                 #if os(iOS)
@@ -293,10 +313,7 @@ struct SetupView: View {
                 TextField("Room", text: club.room)
                 Divider()
                     .frame(height: 22)
-                TextField("Teacher", text: club.staff)
-                    #if os(iOS)
-                    .textInputAutocapitalization(.words)
-                    #endif
+                teacherField(club.staff, typed: typed, teachers: teachers)
             }
             .font(.subheadline)
             .frame(minHeight: 42)
@@ -304,6 +321,72 @@ struct SetupView: View {
         .textFieldStyle(.plain)
         .padding(.horizontal, 14)
         .background(.quaternary, in: .rect(cornerRadius: 14))
+    }
+
+    /// Who runs a club: picked from the slot's teachers, or typed after
+    /// "Custom…", with the list still beside the field to go back to.
+    @ViewBuilder
+    private func teacherField(_ staff: Binding<String>, typed: Binding<Bool>, teachers: [String]) -> some View {
+        let menu = { (label: AnyView) in
+            Menu {
+                ForEach(teachers, id: \.self) { teacher in
+                    Button {
+                        staff.wrappedValue = teacher
+                        typed.wrappedValue = false
+                    } label: {
+                        if !typed.wrappedValue && staff.wrappedValue == teacher {
+                            Label(teacher, systemImage: "checkmark")
+                        } else {
+                            Text(teacher)
+                        }
+                    }
+                }
+                Divider()
+                Button("Custom\u{2026}") {
+                    // a teacher picked from the list is not kept as if typed
+                    if teachers.contains(staff.wrappedValue) { staff.wrappedValue = "" }
+                    typed.wrappedValue = true
+                }
+            } label: {
+                label
+            }
+            .menuIndicator(.hidden)
+            .buttonStyle(.plain)
+        }
+        if teachers.isEmpty {
+            TextField("Teacher", text: staff)
+                #if os(iOS)
+                .textInputAutocapitalization(.words)
+                #endif
+        } else if typed.wrappedValue {
+            HStack(spacing: 6) {
+                TextField("Teacher", text: staff)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.words)
+                    #endif
+                menu(AnyView(chevrons))
+                    .fixedSize()
+                    .accessibilityLabel("Pick a teacher")
+            }
+        } else {
+            menu(AnyView(
+                HStack(spacing: 6) {
+                    Text(staff.wrappedValue.isEmpty ? "Teacher" : staff.wrappedValue)
+                        .foregroundStyle(staff.wrappedValue.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    chevrons
+                }
+                .contentShape(.rect)
+            ))
+            .accessibilityLabel(staff.wrappedValue.isEmpty ? "Teacher" : "Teacher, \(staff.wrappedValue)")
+        }
+    }
+
+    private var chevrons: some View {
+        Image(systemName: "chevron.up.chevron.down")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
     }
 
     // MARK: - Picking
@@ -326,6 +409,12 @@ struct SetupView: View {
                 entry.first = named.first { $0.week == 0 } ?? entry.first
                 entry.second = named.first { $0.week == 1 } ?? entry.second
             }
+            // a teacher already put in who isn't on the list stays as typed
+            func typed(_ club: Profile.Club, _ week: Int?) -> Bool {
+                !club.staff.isEmpty && !teachers(of: subject, week: week).contains(club.staff)
+            }
+            entry.firstTyped = typed(entry.first, entry.splits ? 0 : nil)
+            entry.secondTyped = typed(entry.second, 1)
             return entry
         }
     }

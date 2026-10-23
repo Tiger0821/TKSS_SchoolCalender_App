@@ -48,9 +48,12 @@ The first time the app is opened it asks a few questions, one to a page:
    more than one, and picking a class drops any that clash with it.
 4. **SL revision**, if any of the classes you picked has a revision class.
 5. **Your clubs.** The timetable only says "Service Clubs" and "Academic
-   Clubs"; put in what yours are called, with a room and a teacher if you
-   like, and a different club for Week 2 if yours alternate. Or leave them
-   blank.
+   Clubs"; put in what yours are called, with a room if you like, and a
+   different club for Week 2 if yours alternate. Or leave them blank. The
+   teacher is picked from a menu of the teachers the school's timetable has
+   in that slot for your form — that week's, or both weeks' for a club that
+   is the same in each — or typed after **Custom…** for someone not on it.
+   The school publishes who runs the clubs but not what they are called.
 
 Guidance, Weekly Alignment and the clubs are on everyone's timetable and are
 never asked about. Any period before 16:05 with none of your classes in it is
