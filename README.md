@@ -293,11 +293,14 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   framework apps aren't given, so it is the person symbol's own ring, head
   and shoulders, with the Face ID symbol's face (two upright eyes, a nose
   that turns at its foot and a smile) cut out of the head. It opens its eyes
-  as the window comes up, looks at the pointer wherever it is on the screen
-  (the face most, the head less, the shoulders hardly, so it seems to turn),
-  blinks every few seconds, smiles wider while the pointer is on it and nods
-  when clicked. Bored, with the pointer still for 15 to 30 seconds and the
-  pointer not on it, it gets up
+  as the window comes up, looks at the pointer wherever it is while
+  Timetable is the app in use (the face most, the head less, the shoulders
+  hardly, so it seems to turn), blinks every few seconds, smiles wider while
+  the pointer is on it and nods when clicked. In another app it leaves the
+  pointer alone: following it across the screenshot tool's shading, it had
+  the window drawn again 120 times a second and the shading dragged behind
+  the pointer. Bored, with the pointer still for 15 to 30 seconds, the
+  pointer not on it and Timetable the app in use, it gets up
   to something, a different thing each time: it ducks out of sight and
   peeks in round one side of the ring and then the other, one eye showing,
   before popping back up (探頭); it climbs out over the top of the ring,
@@ -306,7 +309,13 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   mouth open to the bottom of the window, bounces, and is hauled back up on
   a thread, swinging, as a spider goes back up its own (掉下來，被吊回去).
   Left alone for a minute it dozes off, head down, with z's rising
-  off it, and the pointer or a key wakes it with a start. As the login
+  off it while Timetable is in use (only then: they would have the window
+  drawn again all the time), and the pointer or a key wakes it with a
+  start. It is drawn on layers of its own, by a clock of its own that runs
+  at the screen's full 120 frames a second only while it moves; drawn by
+  SwiftUI, every frame of it had the whole page laid out again, sixty per
+  cent of a core while the pointer moved, where it is now about fourteen.
+  As the login
   window shakes its head at a wrong password and grins at a right one, it
   shakes its head and frowns when ManageBac turns a look away, and grins
   when you sign in again. With Reduce Motion it doesn't follow the pointer,
@@ -330,7 +339,9 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   and the weekday and the clock under it, at the left; the temperature
   large, and the conditions, the high and low and the place under it, at the
   right — with the sun or the moon between them, all in white with a soft
-  halo. Scrolled, the boxes come up into the header and it gives way to
+  halo. The date starts where the boxes' titles do, and the weather ends
+  where the right boxes' words end, twenty points in from the boxes' edges,
+  and the one line it gathers into keeps to the same edges. Scrolled, the boxes come up into the header and it gives way to
   them, as the Weather app's does: the large lines fade and the header
   gathers into one line, the date and the clock at the left and "24°C |
   Drizzle" at the right. The boxes then go on up under it the way the

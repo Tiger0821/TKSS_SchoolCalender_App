@@ -42,11 +42,11 @@ struct MacPage: View {
     private static let heroTall: CGFloat = 78
     // the one line's own height: at 36 it left a strip of empty sky between the line and the boxes
     private static let heroShort: CGFloat = 26
-    /// Room over the header, under the title bar, and in from each side of it.
+    /// Room over the header, under the title bar, and in from each side of it: as far in as the
+    /// boxes' own words are from their edges, so the date starts where the left boxes' titles do
+    /// and the weather ends where the right box's words do, gathered into one line or not.
     private static let heroTop: CGFloat = 14
-    private static let heroInset: CGFloat = 10
-    /// How far in from that the one line sits once the header has gathered.
-    private static let gatheredInset: CGFloat = 48
+    private static let heroInset: CGFloat = 20
 
     /// From this width there is room for the boxes in two columns.
     private static let twoColumns: CGFloat = 820
@@ -223,8 +223,6 @@ struct MacPage: View {
                     WeatherLine(weather: current, isDay: isDay, onSky: onSky)
                 }
             }
-            // drawn in toward the middle as the header gathers, a centimetre a side on a laptop's screen
-            .padding(.horizontal, Self.gatheredInset * gathered)
             .opacity(max(0, (gathered - 0.45) / 0.55))
             .allowsHitTesting(false)
         }

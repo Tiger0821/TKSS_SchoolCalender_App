@@ -8,8 +8,12 @@ import SwiftUI
    the Face ID symbol's face cut out of the head (two eyes, a nose that
    turns at its foot and a smile) for the glass to show through.
 
-   - It looks at the pointer, wherever it is on the screen: the face most,
-     the head after it, the shoulders hardly at all, so it seems to turn.
+   - It looks at the pointer while the pointer is on its window, and
+     Timetable is the app in use: the face most, the head after it, the
+     shoulders hardly at all, so it seems to turn. Anywhere else it leaves
+     the pointer alone: following it across another app, or the screenshot
+     tool's shading, it had the window drawn again a hundred and twenty
+     times a second, and the shading dragged behind the pointer.
    - It blinks, every few seconds, now and then twice.
    - Left alone for a minute, it dozes off, head down and eyes shut, with z's
      rising off it; the pointer moving or a key pressed wakes it with a
@@ -20,7 +24,7 @@ import SwiftUI
      shake of the head and a right one a grin, ManageBac turning a look away
      gets a shake of the head and a frown, and signing in again a grin.
    - Bored, with the pointer still for a while but not yet long enough to
-     doze, it gets up to something, a different thing each time (`Trick`):
+     doze, and Timetable the app in use, it gets up to something, a different thing each time (`Trick`):
      it ducks out of sight and peeks in round one side of the ring and then
      the other, one eye showing, before popping back up (探頭); it climbs out
      over the top of the ring, hands first, sits on it with its legs
@@ -29,9 +33,13 @@ import SwiftUI
      window, bounces, and is hauled back up on a thread, legs dangling and
      swinging, as a spider goes back up its own (掉下來，被吊回去).
 
-   The ring stays where it is, and the person is drawn on its own over a
-   space three times as wide and as high, and on a fall as far down as the
-   window goes, so that it can leave the ring. */
+   It is drawn on layers of its own, by a clock of its own (`AvatarEngine`),
+   and SwiftUI only tells it what the page knows: how big it is, whether the
+   pointer is on it, a click, ManageBac. Drawn by SwiftUI, every frame of it
+   moving had the page laid out again, every box and every pane of glass:
+   sixty per cent of a core while the pointer moved, where the app sat at
+   five, enough to make taking a screenshot stutter. The sky's frames did
+   the same before they were put on a layer (`SkyLayer`). */
 struct Avatar: View {
     /// Across.
     let size: CGFloat
@@ -44,210 +52,790 @@ struct Avatar: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable private var homework = Homework.shared
-    /// Where it looks, from -1 to 1 each way, toward the pointer.
-    @State private var look = CGVector.zero
-    @State private var blinking = false
-    /// Asleep until the window has been up a moment, as the login picture holds still at first.
-    @State private var asleep = true
-    @State private var motion = Motion()
-    @State private var pose = Pose()
-    @State private var activity = Activity()
-
-    /// What a nod, a shake or a start does over its moment, on top of the face as it is.
-    private struct Motion {
-        var hop: CGFloat = 0
-        var sway: CGFloat = 0
-        var nod: CGFloat = 0
-        var wide: CGFloat = 1
-        var smile: CGFloat = 0
-    }
-
-    /// Where the person is, in its ring or out of it, and what its arms and legs are doing.
-    private struct Pose {
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        /// Degrees, clockwise.
-        var tilt: CGFloat = 0
-        /// 0 down by its sides, 1 up over its head.
-        var arms: CGFloat = 0
-        var legs: CGFloat = 0
-        /// Its hands on the top of the ring, climbing out.
-        var hands: CGFloat = 0
-        var thread: CGFloat = 0
-        /// Its mouth open, falling.
-        var gasp: CGFloat = 0
-        var out = AvatarFace.Out.no
-        /// How much further down than the ring's own space it is drawn, falling.
-        var drop: CGFloat = 0
-    }
-
-    /// When the pointer last moved or a key was last pressed, and what it has been up to since.
-    /// Not watched: it changes far too often to draw the face again for each.
-    fileprivate final class Activity {
-        var last = Date()
-        var handled = Date.distantPast
-        /// Up to something now.
-        var busy = false
-        /// The drop is open, or the pointer on it.
-        var open = false
-        /// Has got up to something since the pointer last moved.
-        var bored = false
-        var boredAfter = TimeInterval.random(in: 15...30)
-        /// What it is yet to get up to, in a shuffled turn, so each comes round before any again.
-        var tricks: [Trick] = []
-        weak var watcher: PointerWatch.Watcher?
-    }
-
-    private enum Cue { case hello, wake, nod, shake, grin }
-
-    fileprivate enum Trick: CaseIterable { case peek, climb, fall }
-
-    /// How long left alone before it dozes off.
-    private static let idle: TimeInterval = 60
-    private static let follow = Animation.spring(duration: 0.35, bounce: 0.1)
+    @State private var engine = AvatarEngine()
 
     var body: some View {
-        Color.clear
+        AvatarStage(engine: engine, size: size, greeted: greeted, open: open, reduceMotion: reduceMotion)
             .frame(width: size, height: size)
-            .overlay(alignment: .top) {
-                AvatarFace(
-                    lookX: look.dx,
-                    lookY: asleep ? 0.7 : look.dy,
-                    eyes: (blinking || asleep ? 0 : 1) * motion.wide,
-                    smile: (asleep ? 0.15 : greeted ? 1 : 0.5) + motion.smile,
-                    headX: motion.sway,
-                    headY: motion.nod + (asleep ? size * 0.03 : 0),
-                    x: pose.x, y: pose.y, tilt: pose.tilt,
-                    arms: pose.arms, legs: pose.legs, hands: pose.hands,
-                    thread: pose.thread, gasp: pose.gasp,
-                    size: size, out: pose.out)
-                    // the ring in the middle of a space it can get out into, up and to the sides
-                    .frame(width: size * 3, height: size * 3 + pose.drop)
-                    .offset(y: -size)
-                    .allowsHitTesting(false)
-            }
-            .overlay(alignment: .topTrailing) {
-                if asleep && !reduceMotion {
-                    Dozing(size: size)
-                        .transition(.opacity)
-                }
-            }
-            .offset(y: motion.hop)
-            .background(PointerWatch(activity: activity) { moved($0) } pressed: { woken() })
-            .task { await blink() }
-            .task { await idle() }
-            .task {
-                try? await Task.sleep(for: .milliseconds(700))
-                wake(with: .hello)
-            }
-            .onChange(of: nods) { play(.nod) }
-            .onChange(of: open || greeted, initial: true) { activity.open = $1 }
+            .onChange(of: nods) { engine.play(.nod) }
             .onChange(of: homework.status) { old, new in
-                if new == .expired { play(.shake) } else if new == .signedIn, old != .signedIn { play(.grin) }
+                if new == .expired { engine.play(.shake) } else if new == .signedIn, old != .signedIn { engine.play(.grin) }
             }
             .onChange(of: homework.problem) { _, problem in
-                if problem != nil { play(.shake) }
+                if problem != nil { engine.play(.shake) }
             }
             .accessibilityHidden(true)
     }
+}
+
+private struct AvatarStage: NSViewRepresentable {
+    let engine: AvatarEngine
+    let size: CGFloat
+    let greeted: Bool
+    let open: Bool
+    let reduceMotion: Bool
+
+    func makeNSView(context: Context) -> AvatarView {
+        engine.view
+    }
+
+    func updateNSView(_ view: AvatarView, context: Context) {
+        engine.update(size: size, greeted: greeted, open: open, reduceMotion: reduceMotion)
+    }
+
+    static func dismantleNSView(_ view: AvatarView, coordinator: ()) {
+        view.engine?.detach()
+    }
+}
+
+/// Where the person is drawn: never what a click lands on, which goes to the button it is in.
+final class AvatarView: NSView {
+    weak var engine: AvatarEngine?
+
+    init(engine: AvatarEngine) {
+        self.engine = engine
+        super.init(frame: .zero)
+        wantsLayer = true
+        // the person gets out of the ring, and far out of this
+        clipsToBounds = false
+        layer?.masksToBounds = false
+        setAccessibilityElement(false)
+    }
+
+    required init?(coder: NSCoder) { fatalError("made in code") }
+
+    // from the top left, as the person is drawn
+    override var isFlipped: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { engine?.detach() } else { engine?.attach() }
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        engine?.rescale()
+    }
+
+    /// From its middle down to the bottom of the window, in points.
+    var floor: CGFloat? {
+        guard window != nil else { return nil }
+        return convert(CGPoint(x: bounds.midX, y: bounds.midY), to: nil).y
+    }
+}
+
+/// How a number of the drawing goes to where it is sent: on a spring, as
+/// SwiftUI's own are measured, or along a curve.
+enum Curve {
+    case spring(Double, bounce: Double)
+    case easeIn(Double)
+    case easeOut(Double)
+    case easeInOut(Double)
+    /// A cubic Bézier through (0, 0), the two points given and (1, 1), over a duration.
+    case curve(Double, Double, Double, Double, duration: Double)
+}
+
+/* One number of the drawing, and how it is moving. On a spring it keeps
+   its speed when it is sent somewhere new, so following the pointer, sent
+   on thirty times a second, it never stops and starts; along a curve it
+   goes from where it is to where it is sent in the time given. */
+@MainActor
+private final class Value {
+    private(set) var now: CGFloat
+    private var target: CGFloat
+    private var speed: CGFloat = 0
+    private var spring: (stiffness: CGFloat, damping: CGFloat)?
+    private var tween: (from: CGFloat, start: CFTimeInterval, duration: CFTimeInterval, ease: (CGFloat) -> CGFloat)?
+    /// Near enough to stop at.
+    private let precision: CGFloat
+
+    init(_ value: CGFloat, precision: CGFloat = 0.001) {
+        now = value
+        target = value
+        self.precision = precision
+    }
+
+    var moving: Bool { spring != nil || tween != nil }
+
+    func go(to value: CGFloat, _ curve: Curve?, at time: CFTimeInterval) {
+        target = value
+        spring = nil
+        tween = nil
+        switch curve {
+        case nil:
+            now = value
+            speed = 0
+        case .spring(let duration, let bounce)?:
+            // as SwiftUI's: a mass of one
+            spring = (pow(2 * .pi / duration, 2), 4 * .pi * (1 - bounce) / duration)
+        case .easeIn(let duration)?:
+            tween = (now, time, duration, Self.bezier(0.42, 0, 1, 1))
+        case .easeOut(let duration)?:
+            tween = (now, time, duration, Self.bezier(0, 0, 0.58, 1))
+        case .easeInOut(let duration)?:
+            tween = (now, time, duration, Self.bezier(0.42, 0, 0.58, 1))
+        case .curve(let x1, let y1, let x2, let y2, let duration)?:
+            tween = (now, time, duration, Self.bezier(x1, y1, x2, y2))
+        }
+    }
+
+    /// Moves on to `time`, `step` after the last; whether it moved.
+    func advance(to time: CFTimeInterval, by step: CFTimeInterval) -> Bool {
+        let before = now
+        if let tween {
+            let done = tween.duration > 0 ? min(1, max(0, (time - tween.start) / tween.duration)) : 1
+            now = tween.from + (target - tween.from) * tween.ease(done)
+            speed = step > 0 ? (now - before) / step : 0
+            if done >= 1 {
+                now = target
+                self.tween = nil
+            }
+        } else if let spring {
+            var left = step
+            while left > 0 {
+                let part = min(left, 1.0 / 240)
+                speed += (-spring.stiffness * (now - target) - spring.damping * speed) * part
+                now += speed * part
+                left -= part
+            }
+            if abs(now - target) < precision, abs(speed) < precision * 10 {
+                now = target
+                speed = 0
+                self.spring = nil
+            }
+        }
+        return now != before
+    }
+
+    /// How far along a cubic Bézier timing curve is, a part of the way through its time.
+    private static func bezier(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double) -> (CGFloat) -> CGFloat {
+        func along(_ s: Double, _ a: Double, _ b: Double) -> Double {
+            3 * (1 - s) * (1 - s) * s * a + 3 * (1 - s) * s * s * b + s * s * s
+        }
+        return { t in
+            let t = Double(t)
+            // the point on the curve whose x is t, halved in on
+            var low = 0.0, high = 1.0, s = t
+            for _ in 0..<24 {
+                if along(s, x1, x2) < t { low = s } else { high = s }
+                s = (low + high) / 2
+            }
+            return CGFloat(along(s, y1, y2))
+        }
+    }
+}
+
+/* The person: its numbers, the layers it is drawn on, its clock, and what
+   it gets up to. The clock is the screen's own (`CADisplayLink`), running
+   only while a number is moving; each frame the person's picture, a few
+   dozen points across, is painted again and put on its layer, and where it
+   is and how it leans are set on the layer, and SwiftUI is not told. */
+@MainActor
+final class AvatarEngine: NSObject {
+    enum Cue { case hello, wake, nod, shake, grin }
+
+    private enum Trick: CaseIterable { case peek, climb, fall }
+
+    /// Whether the person can be seen outside the ring, and where.
+    private enum Out { case no, over, under }
+
+    private(set) lazy var view = AvatarView(engine: self)
+
+    private var size: CGFloat = 0
+    private var greeted = false
+    private var open = false
+    private var reduceMotion = false
+
+    // where it looks, from -1 to 1 each way, toward the pointer
+    private let lookX = Value(0)
+    private let lookY = Value(0)
+    private let blink = Value(0)
+    /// 1 asleep: eyes shut, head down, looking down. Asleep until the
+    /// window has been up a moment, as the login picture holds still at first.
+    private let sleepy = Value(1)
+    /// 1 while the pointer is on it: a wider smile.
+    private let greet = Value(0)
+    // a nod, a shake or a start, on top of the face as it is
+    private let hop = Value(0, precision: 0.01)
+    private let sway = Value(0, precision: 0.01)
+    private let nod = Value(0, precision: 0.01)
+    private let wide = Value(1)
+    private let smile = Value(0)
+    // where the person is, in its ring or out of it, and what its arms and legs are doing
+    private let x = Value(0, precision: 0.05)
+    private let y = Value(0, precision: 0.05)
+    /// Degrees, clockwise.
+    private let tilt = Value(0, precision: 0.05)
+    /// 0 down by its sides, 1 up over its head.
+    private let arms = Value(0)
+    private let legs = Value(0)
+    /// Its hands on the top of the ring, climbing out.
+    private let hands = Value(0)
+    private let thread = Value(0)
+    /// Its mouth open, falling.
+    private let gasp = Value(0)
+    private lazy var values = [lookX, lookY, blink, sleepy, greet, hop, sway, nod, wide, smile,
+                               x, y, tilt, arms, legs, hands, thread, gasp]
+    private var out = Out.no
+    /// Swinging on its thread, from and until.
+    private var swing: (from: CFTimeInterval, until: CFTimeInterval)?
+    /// How much further down than its own space the person can be seen, falling.
+    private var drop: CGFloat = 0
+
+    private var asleep = true
+    /// When the pointer last moved or a key was last pressed.
+    private var last = Date()
+    private var handled = Date.distantPast
+    /// Up to something now.
+    private var busy = false
+    /// Has got up to something since the pointer last moved.
+    private var bored = false
+    private var boredAfter = TimeInterval.random(in: 15...30)
+    /// What it is yet to get up to, in a shuffled turn, so each comes round before any again.
+    private var tricks: [Trick] = []
+
+    private var tasks: [Task<Void, Never>] = []
+    private var monitors: [Any] = []
+    private var observers: [NSObjectProtocol] = []
+    private var link: CADisplayLink?
+    private var lastTick: CFTimeInterval?
+
+    private let stage = CALayer()
+    private let ring = CAShapeLayer()
+    /// The space the person can be seen in, cut to the ring's inside but where it is out (`seen`).
+    private let room = CALayer()
+    private let seen = CAShapeLayer()
+    private let figure = CALayer()
+    private let grip = CALayer()
+    private let string = CALayer()
+    private var zs: [CATextLayer] = []
+    private var built = false
+
+    /// How long left alone before it dozes off.
+    private static let idle: TimeInterval = 60
+    private static let white = CGColor(gray: 1, alpha: 1)
+
+    // MARK: from the page
+
+    func update(size: CGFloat, greeted: Bool, open: Bool, reduceMotion: Bool) {
+        self.open = open || greeted
+        self.reduceMotion = reduceMotion
+        if greeted != self.greeted {
+            self.greeted = greeted
+            go(greet, to: greeted ? 1 : 0, .spring(0.45, bounce: 0.3))
+        }
+        if size != self.size, size > 0 {
+            self.size = size
+            layOut()
+            render()
+        }
+    }
+
+    func attach() {
+        guard tasks.isEmpty, let window = view.window else { return }
+        if !built { build() }
+        rescale()
+        // or the window hears the pointer only over what tracks it
+        window.acceptsMouseMovedEvents = true
+        let moves: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
+        // the app's own events only: what goes to other apps is theirs (as above)
+        if let local = NSEvent.addLocalMonitorForEvents(matching: moves.union([.keyDown, .scrollWheel]), handler: { [weak self] event in
+            self?.seen(event)
+            return event
+        }) {
+            monitors.append(local)
+        }
+        // the z's only while it is looked at closely: behind another app they would have the
+        // window drawn again all the time, as the sky slows there
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if self?.asleep == true { self?.showZs() } }
+            },
+            center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.hideZs() }
+            },
+        ]
+        let link = view.displayLink(target: self, selector: #selector(tick(_:)))
+        // as many frames as the screen shows: a hundred and twenty a second on a ProMotion screen
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        link.isPaused = true
+        self.link = link
+        tasks = [
+            Task { await self.hello() },
+            Task { await self.blinking() },
+            Task { await self.idling() },
+        ]
+        if asleep { showZs() }
+    }
+
+    func detach() {
+        tasks.forEach { $0.cancel() }
+        tasks = []
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        link?.invalidate()
+        link = nil
+    }
+
+    func rescale() {
+        let scale = view.window?.backingScaleFactor ?? 2
+        for layer in [ring, figure, grip] + zs { layer.contentsScale = scale }
+        render()
+    }
+
+    func play(_ cue: Cue) {
+        struct Motion {
+            var hop: CGFloat = 0
+            var sway: CGFloat = 0
+            var nod: CGFloat = 0
+            var wide: CGFloat = 1
+            var smile: CGFloat = 0
+        }
+        let steps: [(Motion, Curve, Duration)]
+        let unit = size / 26
+        switch cue {
+        case .hello:
+            steps = [(Motion(hop: -2.5 * unit, smile: 0.5), .spring(0.3, bounce: 0.4), .milliseconds(250)),
+                     (Motion(smile: 0.5), .spring(0.4, bounce: 0.4), .milliseconds(900)),
+                     (Motion(), .easeInOut(0.5), .zero)]
+        case .wake:
+            steps = [(Motion(hop: -3 * unit, wide: 1.45), .spring(0.18, bounce: 0.2), .milliseconds(320)),
+                     (Motion(), .spring(0.45, bounce: 0.45), .zero)]
+        case .nod:
+            steps = [(Motion(nod: 2 * unit, smile: 0.5), .easeIn(0.14), .milliseconds(140)),
+                     (Motion(nod: -0.6 * unit, smile: 0.5), .easeOut(0.16), .milliseconds(160)),
+                     (Motion(smile: 0.5), .spring(0.3, bounce: 0.3), .milliseconds(600)),
+                     (Motion(), .easeInOut(0.4), .zero)]
+        case .shake:
+            let sway: [CGFloat] = [-2.2, 2.2, -1.8, 1.4, -0.8]
+            steps = sway.map { (Motion(sway: $0 * unit, smile: -1.4), .easeInOut(0.09), .milliseconds(90)) }
+                + [(Motion(smile: -1.4), .spring(0.3, bounce: 0.3), .milliseconds(900)),
+                   (Motion(), .easeInOut(0.4), .zero)]
+        case .grin:
+            steps = [(Motion(hop: -2 * unit, smile: 0.7), .spring(0.3, bounce: 0.4), .milliseconds(250)),
+                     (Motion(smile: 0.7), .spring(0.4, bounce: 0.4), .milliseconds(1100)),
+                     (Motion(), .easeInOut(0.5), .zero)]
+        }
+        Task {
+            for (to, curve, hold) in steps {
+                // with less motion, the face changes and the head stays where it is
+                if !reduceMotion {
+                    go(hop, to: to.hop, curve)
+                    go(sway, to: to.sway, curve)
+                    go(nod, to: to.nod, curve)
+                }
+                go(wide, to: to.wide, curve)
+                go(smile, to: to.smile, curve)
+                try? await Task.sleep(for: hold)
+            }
+        }
+    }
+
+    // MARK: the clock
+
+    /// Sends a number on, and the clock going if it was still.
+    private func go(_ value: Value, to target: CGFloat, _ curve: Curve?) {
+        guard let link else {
+            value.go(to: target, nil, at: 0)
+            render()
+            return
+        }
+        value.go(to: target, curve, at: CACurrentMediaTime())
+        if curve == nil { render() }
+        if link.isPaused {
+            lastTick = nil
+            link.isPaused = false
+        }
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        let time = link.targetTimestamp
+        // after a pause, or a long frame, as if a usual one had passed
+        let step = min(1.0 / 30, lastTick.map { time - $0 } ?? 1.0 / 120)
+        lastTick = time
+        var moved = false
+        for value in values {
+            if value.advance(to: time, by: step) { moved = true }
+        }
+        let swinging = swing.map { time < $0.until } ?? false
+        if moved || swinging { render(at: time) }
+        if !swinging { swing = nil }
+        if swing == nil, !values.contains(where: \.moving) {
+            link.isPaused = true
+            lastTick = nil
+        }
+    }
+
+    // MARK: drawing
+
+    private func build() {
+        built = true
+        guard let host = view.layer else { return }
+        host.addSublayer(stage)
+        ring.fillColor = nil
+        ring.strokeColor = Self.white
+        stage.addSublayer(ring)
+        room.mask = seen
+        stage.addSublayer(room)
+        string.backgroundColor = Self.white
+        for layer in [string, grip, figure] { room.addSublayer(layer) }
+        for index in 0..<3 {
+            let z = CATextLayer()
+            z.string = "z"
+            z.foregroundColor = Self.white
+            z.alignmentMode = .center
+            z.opacity = 0
+            z.shadowColor = CGColor(gray: 0, alpha: 1)
+            z.shadowOpacity = 0.25
+            z.shadowRadius = 1.5
+            z.shadowOffset = .zero
+            z.name = String(index)
+            zs.append(z)
+        }
+        layOut()
+    }
+
+    /// Where the ring's middle is in `room`, which reaches from a ring and a
+    /// half to either side of it and two rings above it to two below, and on
+    /// a fall as far down as the window goes.
+    private var middle: CGPoint { CGPoint(x: size * 1.6, y: size * 2) }
+    /// Half the ring's inside, across.
+    private var inside: CGFloat { size / 2 - size * 0.075 - size * 0.05 }
+
+    private func layOut() {
+        guard built, size > 0 else { return }
+        let d = size
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stage.frame = CGRect(x: 0, y: 0, width: d, height: d)
+        let line = d * 0.075
+        ring.frame = stage.bounds
+        ring.lineWidth = line
+        ring.path = CGPath(ellipseIn: stage.bounds.insetBy(dx: line / 2, dy: line / 2), transform: nil)
+        room.frame = CGRect(x: d / 2 - middle.x, y: d / 2 - middle.y, width: d * 3.2, height: d * 4 + drop)
+        seen.frame = room.bounds
+        seen.path = seenPath()
+        figure.bounds = CGRect(x: 0, y: 0, width: d * 1.2, height: d * 1.75)
+        // it turns about a point a fifth of the ring down from the ring's middle
+        figure.anchorPoint = CGPoint(x: 0.5, y: 0.95 / 1.75)
+        grip.frame = CGRect(x: middle.x - d * 0.6, y: middle.y - d * 0.7, width: d * 1.2, height: d * 1.3)
+        for (index, z) in zs.enumerated() {
+            let font = NSFont.systemFont(ofSize: d * (0.26 + 0.06 * CGFloat(index)), weight: .heavy)
+            z.font = font.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: font.pointSize) } ?? font
+            z.fontSize = font.pointSize
+            z.bounds = CGRect(x: 0, y: 0, width: font.pointSize, height: font.pointSize * 1.3)
+            z.position = CGPoint(x: d * 1.05, y: d * 0.05)
+        }
+        CATransaction.commit()
+        if asleep, link != nil { showZs() }
+    }
+
+    private func seenPath() -> CGPath {
+        let circle = CGPath(ellipseIn: CGRect(x: middle.x - inside, y: middle.y - inside, width: inside * 2, height: inside * 2), transform: nil)
+        let width = room.bounds.width, height = room.bounds.height
+        switch out {
+        case .no: return circle
+        case .over: return circle.union(CGPath(rect: CGRect(x: 0, y: 0, width: width, height: middle.y), transform: nil))
+        case .under: return circle.union(CGPath(rect: CGRect(x: 0, y: middle.y, width: width, height: height - middle.y), transform: nil))
+        }
+    }
+
+    private func render(at time: CFTimeInterval = CACurrentMediaTime()) {
+        guard built, size > 0 else { return }
+        let d = size
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stage.setAffineTransform(CGAffineTransform(translationX: 0, y: hop.now))
+        var swung: CGFloat = 0
+        if let swing {
+            let gone = time - swing.from
+            swung = 10 * sin(2 * .pi * gone / 0.56) * max(0, 1 - gone / (swing.until - swing.from))
+        }
+        figure.contents = paintFigure()
+        figure.position = CGPoint(x: middle.x + x.now, y: middle.y + y.now + d * 0.2)
+        figure.setAffineTransform(CGAffineTransform(rotationAngle: (tilt.now + swung) * .pi / 180))
+        if hands.now > 0.001 {
+            grip.isHidden = false
+            grip.opacity = Float(min(1, hands.now))
+            grip.contents = paintGrip()
+        } else {
+            grip.isHidden = true
+        }
+        // the thread, from the bottom of the ring's inside down to its hands
+        let from = middle.y + inside
+        let held = middle.y + y.now - d * 0.36
+        if thread.now > 0.001, held > from {
+            let width = d * 0.035
+            string.isHidden = false
+            string.opacity = Float(min(1, thread.now))
+            string.frame = CGRect(x: middle.x - width / 2, y: from, width: width, height: held - from)
+            string.cornerRadius = width / 2
+        } else {
+            string.isHidden = true
+        }
+        CATransaction.commit()
+    }
+
+    /// A context a box of points across, drawn into from the top left at
+    /// the screen's own scale, with `origin` where the person's own middle is.
+    private func canvas(_ box: CGSize, origin: CGPoint) -> CGContext? {
+        let scale = view.window?.backingScaleFactor ?? 2
+        guard let context = CGContext(data: nil, width: Int((box.width * scale).rounded(.up)), height: Int((box.height * scale).rounded(.up)),
+                                      bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.translateBy(x: 0, y: CGFloat(context.height))
+        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(x: origin.x, y: origin.y)
+        context.setFillColor(Self.white)
+        context.setStrokeColor(Self.white)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        return context
+    }
+
+    /* The person, white, the head apart from the shoulders by a gap, and
+       the face cut out of the head in lines, so that what is behind shows
+       through; arms and legs when it is out. In the ring it is cut off by
+       the ring's inside, as the symbol is (`seen`). */
+    private func paintFigure() -> CGImage? {
+        let d = size
+        guard let context = canvas(CGSize(width: d * 1.2, height: d * 1.75), origin: CGPoint(x: d * 0.6, y: d * 0.75)) else { return nil }
+        let asleep = sleepy.now
+        let lookAcross = lookX.now
+        let lookDown = lookY.now * (1 - asleep) + 0.7 * asleep
+        let eyes = max(0, 1 - max(blink.now, asleep)) * wide.now
+        let smiling = 0.5 + 0.5 * greet.now - 0.35 * asleep + smile.now
+        context.setLineWidth(d * 0.075)
+
+        if legs.now > 0.001 {
+            context.saveGState()
+            context.setAlpha(min(1, legs.now * 3))
+            for side in [-1.0, 1.0] {
+                context.move(to: CGPoint(x: side * d * 0.11, y: d * 0.56))
+                context.addLine(to: CGPoint(x: side * d * 0.13, y: d * 0.56 + d * 0.3 * legs.now))
+            }
+            context.strokePath()
+            context.restoreGState()
+        }
+        context.fillEllipse(in: CGRect(x: lookAcross * d * 0.015 - d * 0.32, y: d * 0.16, width: d * 0.64, height: d * 0.48))
+        if arms.now > 0.001 {
+            context.saveGState()
+            context.setAlpha(min(1, arms.now * 3))
+            for side in [-1.0, 1.0] {
+                context.move(to: CGPoint(x: side * d * 0.26, y: d * 0.32))
+                context.addLine(to: CGPoint(x: side * (d * 0.36 - d * 0.24 * arms.now), y: d * 0.5 - d * 0.86 * arms.now))
+            }
+            context.strokePath()
+            context.restoreGState()
+        }
+
+        // the shoulders turn least, the head more, the face most
+        let head = CGPoint(x: lookAcross * d * 0.04 + sway.now, y: -d * 0.07 + lookDown * d * 0.03 + nod.now + asleep * d * 0.03)
+        let radius = d * 0.2
+        context.setBlendMode(.clear)
+        context.fillEllipse(in: CGRect(x: head.x - radius - d * 0.045, y: head.y - radius - d * 0.045,
+                                       width: (radius + d * 0.045) * 2, height: (radius + d * 0.045) * 2))
+        context.setBlendMode(.normal)
+        context.fillEllipse(in: CGRect(x: head.x - radius, y: head.y - radius, width: radius * 2, height: radius * 2))
+
+        // the face, as the Face ID symbol draws it, cut out of the head
+        context.setBlendMode(.clear)
+        context.setLineWidth(d * 0.032)
+        let face = CGPoint(x: head.x + lookAcross * d * 0.06, y: head.y + lookDown * d * 0.045)
+        for side in [-1.0, 1.0] {
+            let eye = CGPoint(x: face.x + side * d * 0.078, y: face.y - d * 0.04)
+            if eyes < 0.2 {
+                // shut: a line curved down at its ends
+                context.move(to: CGPoint(x: eye.x - d * 0.035, y: eye.y))
+                context.addQuadCurve(to: CGPoint(x: eye.x + d * 0.035, y: eye.y), control: CGPoint(x: eye.x, y: eye.y + d * 0.03))
+            } else {
+                let tall = d * 0.03 * eyes
+                context.move(to: CGPoint(x: eye.x, y: eye.y - tall))
+                context.addLine(to: CGPoint(x: eye.x, y: eye.y + tall))
+            }
+        }
+        // the nose turns furthest, and its foot points the other way
+        let nose = CGPoint(x: face.x + lookAcross * d * 0.015 + d * 0.012, y: face.y)
+        context.move(to: CGPoint(x: nose.x, y: nose.y - d * 0.065))
+        context.addLine(to: CGPoint(x: nose.x, y: nose.y + d * 0.008))
+        context.addQuadCurve(to: CGPoint(x: nose.x - d * 0.035, y: nose.y + d * 0.03), control: CGPoint(x: nose.x, y: nose.y + d * 0.03))
+        let lips = face.y + d * 0.08
+        if gasp.now > 0.5 {
+            context.strokePath()
+            // an O, falling
+            let open = d * 0.07 * gasp.now
+            context.fillEllipse(in: CGRect(x: face.x - d * 0.032, y: lips - open / 3, width: d * 0.064, height: open))
+        } else {
+            context.move(to: CGPoint(x: face.x - d * 0.075, y: lips))
+            context.addQuadCurve(to: CGPoint(x: face.x + d * 0.075, y: lips), control: CGPoint(x: face.x, y: lips + smiling * d * 0.09))
+            context.strokePath()
+        }
+        return context.makeImage()
+    }
+
+    /// Climbing out: its hands on the top of the ring, and its arms up to them from its shoulders.
+    private func paintGrip() -> CGImage? {
+        let d = size
+        // drawn about the ring's middle
+        guard let context = canvas(grip.bounds.size, origin: CGPoint(x: d * 0.6, y: d * 0.7)) else { return nil }
+        context.setLineWidth(d * 0.075)
+        let top = -d / 2 + d * 0.075 / 2
+        for side in [-1.0, 1.0] {
+            let hand = CGPoint(x: side * d * 0.17, y: top)
+            context.move(to: CGPoint(x: x.now + side * d * 0.24, y: y.now + d * 0.24))
+            context.addLine(to: hand)
+            context.strokePath()
+            context.fillEllipse(in: CGRect(x: hand.x - d * 0.065, y: hand.y - d * 0.065, width: d * 0.13, height: d * 0.13))
+        }
+        return context.makeImage()
+    }
+
+    /// Three z's, rising off it up and to one side and fading, one after another, by Core
+    /// Animation alone.
+    private func showZs() {
+        guard !reduceMotion, built, NSApp.isActive else { return }
+        let d = size
+        let start = CACurrentMediaTime()
+        for (index, z) in zs.enumerated() {
+            if z.superlayer == nil { stage.addSublayer(z) }
+            let rise = CABasicAnimation(keyPath: "position")
+            rise.fromValue = CGPoint(x: d * 1.05, y: d * 0.05)
+            rise.toValue = CGPoint(x: d * 1.6, y: -d * 0.75)
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            let grow = CABasicAnimation(keyPath: "transform.scale")
+            grow.fromValue = 0.6
+            grow.toValue = 1.2
+            let group = CAAnimationGroup()
+            group.animations = [rise, fade, grow]
+            group.duration = 2.4
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            group.repeatCount = .infinity
+            group.beginTime = start + Double(index) * 0.8
+            // drifting, they are smooth enough at thirty a second, a quarter of the work of a hundred
+            // and twenty
+            group.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 30)
+            z.add(group, forKey: "doze")
+        }
+    }
+
+    private func hideZs() {
+        for z in zs {
+            z.removeAllAnimations()
+            z.removeFromSuperlayer()
+        }
+    }
+
+    // MARK: what it does
 
     /* The pointer, from the middle of the face, in points. The eyes go all
        the way round only when it is well away: close by, a little. Thirty
        times a second at most, and not for a move too small to be seen. */
-    private func moved(_ offset: CGVector) {
+    private func seen(_ event: NSEvent) {
+        guard let window = view.window, window.occlusionState.contains(.visible) else { return }
+        if event.type == .keyDown || event.type == .scrollWheel {
+            woken()
+            return
+        }
         woken()
-        guard !reduceMotion, Date().timeIntervalSince(activity.handled) > 1.0 / 30 else { return }
-        activity.handled = Date()
+        guard !reduceMotion, Date().timeIntervalSince(handled) > 1.0 / 30 else { return }
+        handled = Date()
+        let pointer = NSEvent.mouseLocation
+        /* Only while this window is the one under the pointer. The
+           screenshot tool's shading is a window over the whole screen, and
+           the app still hears the pointer under it: following it there, the
+           face had the window drawn again a hundred and twenty times a
+           second while the tool drew the shading, and the shading dragged
+           behind the pointer. */
+        guard NSWindow.windowNumber(at: pointer, belowWindowWithWindowNumber: 0) == window.windowNumber else { return }
+        let middle = window.convertPoint(toScreen: view.convert(CGPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
+        // the screen's y goes up, the face's down
+        follow(CGVector(dx: pointer.x - middle.x, dy: middle.y - pointer.y))
+    }
+
+    private func follow(_ offset: CGVector) {
         let distance = hypot(offset.dx, offset.dy)
         let reach = distance / (distance + size * 4)
         let wanted = distance < 1 ? .zero : CGVector(dx: offset.dx / distance * reach, dy: offset.dy / distance * reach)
-        guard hypot(wanted.dx - look.dx, wanted.dy - look.dy) > 0.02 else { return }
-        withAnimation(Self.follow) { look = wanted }
+        guard hypot(wanted.dx - lookX.now, wanted.dy - lookY.now) > 0.02 else { return }
+        go(lookX, to: wanted.dx, .spring(0.35, bounce: 0.1))
+        go(lookY, to: wanted.dy, .spring(0.35, bounce: 0.1))
     }
 
     private func woken() {
-        activity.last = Date()
-        if activity.bored {
-            activity.bored = false
-            activity.boredAfter = .random(in: 15...30)
+        last = Date()
+        if bored {
+            bored = false
+            boredAfter = .random(in: 15...30)
         }
         if asleep { wake(with: .wake) }
     }
 
     private func wake(with cue: Cue) {
         guard asleep else { return }
-        withAnimation(.spring(duration: 0.3, bounce: 0.3)) { asleep = false }
+        asleep = false
+        hideZs()
+        go(sleepy, to: 0, .spring(0.3, bounce: 0.3))
         play(cue)
     }
 
-    private func blink() async {
+    private func hello() async {
+        try? await Task.sleep(for: .milliseconds(700))
+        guard !Task.isCancelled else { return }
+        wake(with: .hello)
+    }
+
+    private func blinking() async {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(Double.random(in: 2.5...6)))
-            guard !asleep else { continue }
+            guard !asleep, !Task.isCancelled else { continue }
             for _ in 0..<(Double.random(in: 0...1) < 0.15 ? 2 : 1) {
-                withAnimation(.easeIn(duration: 0.06)) { blinking = true }
+                go(blink, to: 1, .easeIn(0.06))
                 try? await Task.sleep(for: .milliseconds(110))
-                withAnimation(.easeOut(duration: 0.1)) { blinking = false }
+                go(blink, to: 0, .easeOut(0.1))
                 try? await Task.sleep(for: .milliseconds(160))
             }
         }
     }
 
     /// Bored after a while of nothing happening, once each while, and asleep after a minute.
-    private func idle() async {
+    private func idling() async {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(1))
-            guard !asleep, !activity.busy else { continue }
-            let still = Date().timeIntervalSince(activity.last)
+            guard !asleep, !busy else { continue }
+            let still = Date().timeIntervalSince(last)
             if still > Self.idle {
-                withAnimation(.easeInOut(duration: 1.6)) {
-                    asleep = true
-                    look = .zero
-                }
-            } else if still > activity.boredAfter, !activity.bored, !reduceMotion, !activity.open,
-                      activity.watcher?.visible == true {
-                activity.bored = true
-                if activity.tricks.isEmpty { activity.tricks = Trick.allCases.shuffled() }
-                await perform(activity.tricks.removeFirst())
+                asleep = true
+                go(sleepy, to: 1, .easeInOut(1.6))
+                go(lookX, to: 0, .easeInOut(1.6))
+                go(lookY, to: 0, .easeInOut(1.6))
+                showZs()
+            } else if still > boredAfter, !bored, !reduceMotion, !open, NSApp.isActive,
+                      view.window?.occlusionState.contains(.visible) == true {
+                bored = true
+                if tricks.isEmpty { tricks = Trick.allCases.shuffled() }
+                await perform(tricks.removeFirst())
             }
         }
     }
 
-    /// Plays a moment's motion through, step by step.
-    private func play(_ cue: Cue) {
-        let steps: [(Motion, Animation, Duration)]
-        let unit = size / 26
-        switch cue {
-        case .hello:
-            steps = [(Motion(hop: -2.5 * unit, smile: 0.5), .spring(duration: 0.3, bounce: 0.4), .milliseconds(250)),
-                     (Motion(smile: 0.5), .spring(duration: 0.4, bounce: 0.4), .milliseconds(900)),
-                     (Motion(), .easeInOut(duration: 0.5), .zero)]
-        case .wake:
-            steps = [(Motion(hop: -3 * unit, wide: 1.45), .spring(duration: 0.18, bounce: 0.2), .milliseconds(320)),
-                     (Motion(), .spring(duration: 0.45, bounce: 0.45), .zero)]
-        case .nod:
-            steps = [(Motion(nod: 2 * unit, smile: 0.5), .easeIn(duration: 0.14), .milliseconds(140)),
-                     (Motion(nod: -0.6 * unit, smile: 0.5), .easeOut(duration: 0.16), .milliseconds(160)),
-                     (Motion(smile: 0.5), .spring(duration: 0.3, bounce: 0.3), .milliseconds(600)),
-                     (Motion(), .easeInOut(duration: 0.4), .zero)]
-        case .shake:
-            let sway: [CGFloat] = [-2.2, 2.2, -1.8, 1.4, -0.8]
-            steps = sway.map { (Motion(sway: $0 * unit, smile: -1.4), .easeInOut(duration: 0.09), .milliseconds(90)) }
-                + [(Motion(smile: -1.4), .spring(duration: 0.3, bounce: 0.3), .milliseconds(900)),
-                   (Motion(), .easeInOut(duration: 0.4), .zero)]
-        case .grin:
-            steps = [(Motion(hop: -2 * unit, smile: 0.7), .spring(duration: 0.3, bounce: 0.4), .milliseconds(250)),
-                     (Motion(smile: 0.7), .spring(duration: 0.4, bounce: 0.4), .milliseconds(1100)),
-                     (Motion(), .easeInOut(duration: 0.5), .zero)]
-        }
-        Task { @MainActor in
-            for (to, animation, hold) in steps {
-                // with less motion, the face changes and the head stays where it is
-                let to = reduceMotion ? Motion(wide: to.wide, smile: to.smile) : to
-                withAnimation(animation) { motion = to }
-                try? await Task.sleep(for: hold)
-            }
-        }
+    /// Sends some of the pose's numbers on, and waits.
+    private func move(_ curve: Curve?, hold: Duration = .zero, _ changes: (Value, CGFloat)...) async {
+        for (value, target) in changes { go(value, to: target, curve) }
+        if hold > .zero { try? await Task.sleep(for: hold) }
+    }
+
+    private func letOut(_ out: Out, drop: CGFloat = 0) {
+        self.out = out
+        self.drop = drop
+        layOut()
     }
 
     /* The tricks, step by step, in sizes of the ring across (`d`) from where
@@ -255,344 +843,64 @@ struct Avatar: View {
        go; and it is only let out of the ring, or shut back into it, where
        the ring would show it the same either way, so it never jumps. */
     private func perform(_ trick: Trick) async {
-        activity.busy = true
-        defer { activity.busy = false }
+        busy = true
+        defer { busy = false }
         let d = size
         switch trick {
         case .peek:
             // down out of sight
-            await set(.easeIn(duration: 0.25), hold: .milliseconds(800)) { $0.y = d * 0.95 }
+            await move(.easeIn(0.25), hold: .milliseconds(800), (y, d * 0.95))
             // round one side, leaning in, one eye showing; back; round the other
-            await set(nil) { $0.x = -d * 0.85; $0.y = d * 0.1; $0.tilt = 22 }
-            await set(.easeOut(duration: 0.35), hold: .milliseconds(900)) { $0.x = -d * 0.36 }
-            await set(.easeIn(duration: 0.13), hold: .milliseconds(500)) { $0.x = -d * 0.85 }
-            await set(nil) { $0.x = d * 0.85; $0.tilt = -22 }
-            await set(.easeOut(duration: 0.3), hold: .milliseconds(800)) { $0.x = d * 0.36 }
-            await set(.easeIn(duration: 0.13), hold: .milliseconds(450)) { $0.x = d * 0.85 }
+            await move(nil, (x, -d * 0.85), (y, d * 0.1), (tilt, 22))
+            await move(.easeOut(0.35), hold: .milliseconds(900), (x, -d * 0.36))
+            await move(.easeIn(0.13), hold: .milliseconds(500), (x, -d * 0.85))
+            await move(nil, (x, d * 0.85), (tilt, -22))
+            await move(.easeOut(0.3), hold: .milliseconds(800), (x, d * 0.36))
+            await move(.easeIn(0.13), hold: .milliseconds(450), (x, d * 0.85))
             // and up from below, with a bounce
-            await set(nil) { $0.x = 0; $0.y = d * 0.95; $0.tilt = 0 }
-            await set(.spring(duration: 0.5, bounce: 0.5), hold: .milliseconds(200)) { $0.y = 0 }
+            await move(nil, (x, 0), (y, d * 0.95), (tilt, 0))
+            await move(.spring(0.5, bounce: 0.5), hold: .milliseconds(200), (y, 0))
             play(.grin)
         case .climb:
             // free over the top of the ring, the same as in it while it sits where it does
-            await set(nil) { $0.out = .over }
-            await set(.easeOut(duration: 0.2), hold: .milliseconds(250)) { $0.hands = 1; $0.y = -d * 0.12 }
+            letOut(.over)
+            await move(.easeOut(0.2), hold: .milliseconds(250), (hands, 1), (y, -d * 0.12))
             // up, slipping back a little, and up again
-            await set(.easeInOut(duration: 0.35), hold: .milliseconds(150)) { $0.y = -d * 0.45 }
-            await set(.easeInOut(duration: 0.15), hold: .milliseconds(120)) { $0.y = -d * 0.36 }
-            await set(.easeOut(duration: 0.35), hold: .milliseconds(150)) { $0.y = -d * 0.75 }
+            await move(.easeInOut(0.35), hold: .milliseconds(150), (y, -d * 0.45))
+            await move(.easeInOut(0.15), hold: .milliseconds(120), (y, -d * 0.36))
+            await move(.easeOut(0.35), hold: .milliseconds(150), (y, -d * 0.75))
             // sat on the ring, legs dangling, looking round at the pointer
-            await set(.spring(duration: 0.4, bounce: 0.35), hold: .milliseconds(1600)) {
-                $0.y = -d * 1.1
-                $0.hands = 0
-                $0.legs = 1
-            }
+            await move(.spring(0.4, bounce: 0.35), hold: .milliseconds(1600), (y, -d * 1.1), (hands, 0), (legs, 1))
             // a jump up, and down into the ring
-            await set(.easeOut(duration: 0.18), hold: .milliseconds(180)) { $0.y = -d * 1.35; $0.legs = 0.5 }
-            await set(.easeIn(duration: 0.3), hold: .milliseconds(300)) { $0.y = 0; $0.legs = 0 }
-            await set(nil) { $0.out = .no }
+            await move(.easeOut(0.18), hold: .milliseconds(180), (y, -d * 1.35), (legs, 0.5))
+            await move(.easeIn(0.3), hold: .milliseconds(300), (y, 0), (legs, 0))
+            letOut(.no)
             play(.wake)
         case .fall:
-            guard let floor = activity.watcher?.floor else { return }
+            guard let floor = view.floor else { return }
             // where it lands, below where it sits: just above the window's bottom edge
             let bottom = max(d * 2, floor - d * 0.95)
             // a start, and up out of its seat, where the ring shows it whole whichever way
             play(.wake)
-            await set(.easeOut(duration: 0.16), hold: .milliseconds(160)) { $0.y = -d * 0.3 }
-            await set(nil) { $0.out = .under; $0.drop = bottom + d }
+            await move(.easeOut(0.16), hold: .milliseconds(160), (y, -d * 0.3))
+            letOut(.under, drop: bottom)
             // down, as a thing falls: slowly at first, then faster and faster
             let fall = sqrt(2 * (bottom + d * 0.3) / 2600)
-            await set(.timingCurve(0.33, 0, 0.67, 0.33, duration: fall), hold: .seconds(fall)) {
-                $0.y = bottom
-                $0.arms = 1
-                $0.gasp = 1
-            }
+            await move(.curve(0.33, 0, 0.67, 0.33, duration: fall), hold: .seconds(fall), (y, bottom), (arms, 1), (gasp, 1))
             // a bounce, and a moment lying there
-            await set(.easeOut(duration: 0.14), hold: .milliseconds(140)) { $0.y = bottom - d * 0.6; $0.tilt = 14 }
-            await set(.easeIn(duration: 0.14), hold: .milliseconds(600)) { $0.y = bottom; $0.tilt = 0; $0.arms = 0; $0.gasp = 0 }
+            await move(.easeOut(0.14), hold: .milliseconds(140), (y, bottom - d * 0.6), (tilt, 14))
+            await move(.easeIn(0.14), hold: .milliseconds(600), (y, bottom), (tilt, 0), (arms, 0), (gasp, 0))
             // the thread comes down to it, and it takes hold
-            await set(.easeOut(duration: 0.35), hold: .milliseconds(450)) { $0.thread = 1; $0.arms = 1; $0.legs = 1 }
+            await move(.easeOut(0.35), hold: .milliseconds(450), (thread, 1), (arms, 1), (legs, 1))
             // hauled up, swinging, to just under the ring
-            withAnimation(.easeInOut(duration: 0.28).repeatCount(4, autoreverses: true)) { pose.tilt = 10 }
-            await set(.easeInOut(duration: 1.2), hold: .milliseconds(1200)) { $0.y = d * 0.9 }
+            let now = CACurrentMediaTime()
+            swing = (now, now + 1.2)
+            await move(.easeInOut(1.2), hold: .milliseconds(1200), (y, d * 0.9))
             // and in, letting go, to where the ring shows it the same either way
-            await set(.easeOut(duration: 0.3), hold: .milliseconds(300)) {
-                $0.y = -d * 0.3
-                $0.tilt = 0
-                $0.arms = 0
-                $0.legs = 0
-            }
-            await set(nil) { $0.out = .no; $0.thread = 0; $0.drop = 0 }
-            await set(.spring(duration: 0.45, bounce: 0.4)) { $0.y = 0 }
-        }
-    }
-
-    /// Changes the pose, run through as `animation` or at once, and waits `hold`.
-    private func set(_ animation: Animation?, hold: Duration = .zero, _ change: (inout Pose) -> Void) async {
-        if let animation {
-            withAnimation(animation) { change(&pose) }
-        } else {
-            var still = Transaction()
-            still.disablesAnimations = true
-            withTransaction(still) { change(&pose) }
-        }
-        if hold > .zero { try? await Task.sleep(for: hold) }
-    }
-}
-
-/* The ring, and the person, drawn: every part given as a number so that
-   SwiftUI can run each from where it is to where it is going. The ring in
-   the middle; the person in it, white, the head apart from the shoulders
-   by a gap, and the Face ID face cut out of the head in lines, so that what
-   is behind shows through. In the ring the person is cut off by its inside,
-   as the symbol is; out of it, over the top or under the bottom, it is
-   drawn whole, with arms and legs. */
-@Animatable
-private struct AvatarFace: View {
-    var lookX: CGFloat
-    var lookY: CGFloat
-    /// 1 open, 0 shut, more than 1 wide.
-    var eyes: CGFloat
-    /// 1 a smile, 0 a straight line, below it a frown.
-    var smile: CGFloat
-    var headX: CGFloat
-    var headY: CGFloat
-    var x: CGFloat
-    var y: CGFloat
-    var tilt: CGFloat
-    var arms: CGFloat
-    var legs: CGFloat
-    var hands: CGFloat
-    var thread: CGFloat
-    var gasp: CGFloat
-    @AnimatableIgnored var size: CGFloat
-    @AnimatableIgnored var out: Out
-
-    /// Whether the person can be seen outside the ring, and where.
-    enum Out { case no, over, under }
-
-    var body: some View {
-        Canvas { context, canvas in
-            let d = size
-            let middle = CGPoint(x: canvas.width / 2, y: d * 1.5)
-            let line = d * 0.075
-            context.stroke(circle(middle, d / 2 - line / 2), with: .foreground, lineWidth: line)
-
-            let room = d / 2 - line - d * 0.05
-            var seen = circle(middle, room)
-            switch out {
-            case .no: break
-            case .over: seen = seen.union(Path(CGRect(x: 0, y: 0, width: canvas.width, height: middle.y)))
-            case .under: seen = seen.union(Path(CGRect(x: 0, y: middle.y, width: canvas.width, height: canvas.height - middle.y)))
-            }
-            let limb = StrokeStyle(lineWidth: d * 0.075, lineCap: .round)
-
-            // the thread, from the bottom of the ring down to its hands
-            let held = CGPoint(x: middle.x + x, y: middle.y + y - d * 0.36)
-            if thread > 0, held.y > middle.y + room {
-                var string = context
-                string.opacity = min(1, thread)
-                var path = Path()
-                path.move(to: CGPoint(x: middle.x, y: middle.y + room))
-                path.addLine(to: held)
-                string.stroke(path, with: .foreground, style: StrokeStyle(lineWidth: d * 0.035, lineCap: .round))
-            }
-
-            var person = context
-            person.clip(to: seen)
-            // climbing out, its hands on the top of the ring and its arms up to them
-            if hands > 0 {
-                var grip = person
-                grip.opacity = min(1, hands)
-                let top = middle.y - d / 2 + line / 2
-                for side in [-1.0, 1.0] {
-                    let hand = CGPoint(x: middle.x + side * d * 0.17, y: top)
-                    var arm = Path()
-                    arm.move(to: CGPoint(x: middle.x + x + side * d * 0.24, y: middle.y + y + d * 0.24))
-                    arm.addLine(to: hand)
-                    grip.stroke(arm, with: .foreground, style: limb)
-                    grip.fill(circle(hand, d * 0.065), with: .foreground)
-                }
-            }
-
-            // the person turns about its middle
-            person.translateBy(x: middle.x + x, y: middle.y + y + d * 0.2)
-            person.rotate(by: .degrees(tilt))
-            person.translateBy(x: 0, y: -d * 0.2)
-
-            if legs > 0 {
-                var dangling = person
-                dangling.opacity = min(1, legs * 3)
-                for side in [-1.0, 1.0] {
-                    var leg = Path()
-                    leg.move(to: CGPoint(x: side * d * 0.11, y: d * 0.56))
-                    leg.addLine(to: CGPoint(x: side * d * 0.13, y: d * 0.56 + d * 0.3 * legs))
-                    dangling.stroke(leg, with: .foreground, style: limb)
-                }
-            }
-            person.fill(Ellipse().path(in: CGRect(x: lookX * d * 0.015 - d * 0.32, y: d * 0.16, width: d * 0.64, height: d * 0.48)),
-                        with: .foreground)
-            if arms > 0 {
-                var raised = person
-                raised.opacity = min(1, arms * 3)
-                for side in [-1.0, 1.0] {
-                    var arm = Path()
-                    arm.move(to: CGPoint(x: side * d * 0.26, y: d * 0.32))
-                    arm.addLine(to: CGPoint(x: side * (d * 0.36 - d * 0.24 * arms), y: d * 0.5 - d * 0.86 * arms))
-                    raised.stroke(arm, with: .foreground, style: limb)
-                }
-            }
-
-            // the shoulders turn least, the head more, the face most
-            let head = CGPoint(x: lookX * d * 0.04 + headX, y: -d * 0.07 + lookY * d * 0.03 + headY)
-            let radius = d * 0.2
-            person.blendMode = .destinationOut
-            person.fill(circle(head, radius + d * 0.045), with: .color(.black))
-            person.blendMode = .normal
-            person.fill(circle(head, radius), with: .foreground)
-
-            // the face, as the Face ID symbol draws it, cut out of the head
-            person.blendMode = .destinationOut
-            let face = CGPoint(x: head.x + lookX * d * 0.06, y: head.y + lookY * d * 0.045)
-            let pen = StrokeStyle(lineWidth: d * 0.032, lineCap: .round, lineJoin: .round)
-            var features = Path()
-            for side in [-1.0, 1.0] {
-                let eye = CGPoint(x: face.x + side * d * 0.078, y: face.y - d * 0.04)
-                if eyes < 0.2 {
-                    // shut: a line curved down at its ends
-                    features.move(to: CGPoint(x: eye.x - d * 0.035, y: eye.y))
-                    features.addQuadCurve(to: CGPoint(x: eye.x + d * 0.035, y: eye.y), control: CGPoint(x: eye.x, y: eye.y + d * 0.03))
-                } else {
-                    let tall = d * 0.03 * eyes
-                    features.move(to: CGPoint(x: eye.x, y: eye.y - tall))
-                    features.addLine(to: CGPoint(x: eye.x, y: eye.y + tall))
-                }
-            }
-            // the nose turns furthest, and its foot points the other way
-            let nose = CGPoint(x: face.x + lookX * d * 0.015 + d * 0.012, y: face.y)
-            features.move(to: CGPoint(x: nose.x, y: nose.y - d * 0.065))
-            features.addLine(to: CGPoint(x: nose.x, y: nose.y + d * 0.008))
-            features.addQuadCurve(to: CGPoint(x: nose.x - d * 0.035, y: nose.y + d * 0.03),
-                                  control: CGPoint(x: nose.x, y: nose.y + d * 0.03))
-            let lips = face.y + d * 0.08
-            if gasp > 0.5 {
-                // an O, falling
-                let open = d * 0.07 * gasp
-                person.fill(Ellipse().path(in: CGRect(x: face.x - d * 0.032, y: lips - open / 3, width: d * 0.064, height: open)),
-                            with: .color(.black))
-            } else {
-                features.move(to: CGPoint(x: face.x - d * 0.075, y: lips))
-                features.addQuadCurve(to: CGPoint(x: face.x + d * 0.075, y: lips),
-                                      control: CGPoint(x: face.x, y: lips + smile * d * 0.09))
-            }
-            person.stroke(features, with: .color(.black), style: pen)
-        }
-    }
-
-    private func circle(_ middle: CGPoint, _ radius: CGFloat) -> Path {
-        Circle().path(in: CGRect(x: middle.x - radius, y: middle.y - radius, width: radius * 2, height: radius * 2))
-    }
-}
-
-/// Three z's, rising off it up and to one side and fading, one after another.
-private struct Dozing: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            ForEach(0..<3, id: \.self) { index in
-                PhaseAnimator([false, true]) { risen in
-                    Text("z")
-                        .font(.system(size: size * (0.26 + 0.06 * CGFloat(index)), weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.25), radius: 1.5)
-                        // from just off the ring, clear of it
-                        .offset(x: risen ? size * 0.75 : size * 0.22, y: risen ? -size * 0.8 : -size * 0.08)
-                        .opacity(risen ? 0 : 1)
-                        .scaleEffect(risen ? 1.2 : 0.6)
-                } animation: { risen in
-                    // up slowly, and back down at once, unseen
-                    risen ? .easeOut(duration: 2.4).delay(Double(index) * 0.8) : nil
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-/* Where the pointer is, wherever it is, and whether a key is pressed in
-   the app. The pointer's moves come both when the app is in front and when
-   another is; keys only when it is in front, for which no permission is
-   asked. Nothing while the window can't be seen. It also tells the person
-   how far it is to the bottom of the window, and whether the window can be
-   seen at all. */
-private struct PointerWatch: NSViewRepresentable {
-    let activity: Avatar.Activity
-    let moved: (CGVector) -> Void
-    let pressed: () -> Void
-
-    func makeNSView(context: Context) -> Watcher {
-        Watcher()
-    }
-
-    func updateNSView(_ view: Watcher, context: Context) {
-        view.moved = moved
-        view.pressed = pressed
-        activity.watcher = view
-    }
-
-    final class Watcher: NSView {
-        var moved: ((CGVector) -> Void)?
-        var pressed: (() -> Void)?
-        private var monitors: [Any] = []
-
-        /// From its middle down to the bottom of the window, in points.
-        var floor: CGFloat? {
-            guard window != nil else { return nil }
-            return convert(CGPoint(x: bounds.midX, y: bounds.midY), to: nil).y
-        }
-
-        var visible: Bool {
-            window?.occlusionState.contains(.visible) == true
-        }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            monitors.forEach(NSEvent.removeMonitor)
-            monitors = []
-            guard let window else { return }
-            // or the window hears the pointer only over what tracks it
-            window.acceptsMouseMovedEvents = true
-            let moves: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
-            if let local = NSEvent.addLocalMonitorForEvents(matching: moves.union([.keyDown, .scrollWheel]), handler: { [weak self] event in
-                self?.seen(event)
-                return event
-            }) {
-                monitors.append(local)
-            }
-            if let global = NSEvent.addGlobalMonitorForEvents(matching: moves, handler: { [weak self] event in
-                self?.seen(event)
-            }) {
-                monitors.append(global)
-            }
-        }
-
-        override func removeFromSuperview() {
-            monitors.forEach(NSEvent.removeMonitor)
-            monitors = []
-            super.removeFromSuperview()
-        }
-
-        private func seen(_ event: NSEvent) {
-            guard let window, visible else { return }
-            if event.type == .keyDown || event.type == .scrollWheel {
-                pressed?()
-                return
-            }
-            let pointer = NSEvent.mouseLocation
-            let middle = window.convertPoint(toScreen: convert(CGPoint(x: bounds.midX, y: bounds.midY), to: nil))
-            // the screen's y goes up, the face's down
-            moved?(CGVector(dx: pointer.x - middle.x, dy: middle.y - pointer.y))
+            await move(.easeOut(0.3), hold: .milliseconds(300), (y, -d * 0.3), (tilt, 0), (arms, 0), (legs, 0))
+            await move(nil, (thread, 0))
+            letOut(.no)
+            await move(.spring(0.45, bounce: 0.4), (y, 0))
         }
     }
 }
