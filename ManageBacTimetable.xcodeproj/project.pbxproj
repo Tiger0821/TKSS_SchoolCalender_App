@@ -314,9 +314,9 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000010 /* App */,
-				AA0000000000000000000211 /* Page */,
 				AA0000000000000000000011 /* Shared */,
 				AA0000000000000000000110 /* Common */,
+				AA0000000000000000000211 /* Page */,
 			);
 			name = ManageBacTimetable;
 			packageProductDependencies = (
@@ -412,10 +412,10 @@
 				AA0000000000000000000241 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				AA0000000000000000000210 /* Mac */,
-				AA0000000000000000000211 /* Page */,
 				AA0000000000000000000011 /* Shared */,
 				AA0000000000000000000110 /* Common */,
+				AA0000000000000000000210 /* Mac */,
+				AA0000000000000000000211 /* Page */,
 			);
 			name = TimetableMac;
 			packageProductDependencies = (
