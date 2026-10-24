@@ -13,6 +13,7 @@ struct MacSettings: View {
     @Environment(\.openWindow) private var openWindow
     @AppStorage(MenuBarClass.shownKey) private var inMenuBar = true
     @AppStorage("classReminders") private var reminders = true
+    @AppStorage(ClassReminders.leadsKey) private var leads = ClassReminders.standard
     @AppStorage(MacBackdrop.key) private var backdrop = MacBackdrop.sky
     @AppStorage(MacBackdrop.clearKey) private var clear = MacBackdrop.clearDefault
     @AppStorage(MacBackdrop.blurKey) private var blur = MacBackdrop.blurDefault
@@ -103,11 +104,15 @@ struct MacSettings: View {
 
             Section("Reminders") {
                 Toggle(isOn: $reminders) {
-                    Text("Before each class")
-                    Text("15 minutes and 5 minutes ahead")
+                    Text("Send notifications")
+                    Text(ClassReminders.summary(ClassReminders.parse(leads)))
                 }
                 .onChange(of: reminders) { model.settle() }
-                Text("The Mac lays its own down some four school days ahead, and tops them up each day Timetable is running. The iPhone and the Apple Watch send theirs as well.")
+                if reminders {
+                    // up to three times, each on a wheel of its own, as the Clock app's timer
+                    ReminderTimes { model.settle() }
+                }
+                Text("Turn a wheel to Off for fewer. The Mac lays its own down some four school days ahead, and tops them up each day Timetable is running. The iPhone sends the times picked on it, and the Apple Watch its own, 15 and 5 minutes before.")
                     .settingsNote()
             }
 

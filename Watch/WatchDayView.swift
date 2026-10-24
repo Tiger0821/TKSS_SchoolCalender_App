@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 /* The day on the watch: the phone's page with everything taken off it that
    the watch has no room for, or already says. No date and no clock — the
@@ -15,9 +16,15 @@ import SwiftUI
    top, with which of the two weeks it falls in, since the same weekday is a
    different day in the other week.
 
-   A day arriving is felt and seen at once: a click on the wrist, and with
-   it the day's name gives a start and its rows come in from the side the
-   swipe came from, each a moment behind the one above (Arriving).
+   A day arriving is seen as it comes on: its name gives a start and its
+   rows come in from the side the swipe comes from, each a moment behind
+   the one above (Arriving), from the moment the finger sets off toward it,
+   while the page slides in; and the wrist is clicked as the swipe is let
+   go. The pages say which one is on only once a swipe has settled, half a
+   second after it ends, and set off from that, the day had arrived and
+   stopped before it moved again. The Digital Crown scrolls the day on
+   screen, up and down; only a swipe goes to another day. Today's name is
+   in red.
 
    Under the day is the way into setup (WatchSetupView), to change the
    classes; with no profile yet, it is all there is. */
@@ -34,6 +41,14 @@ struct WatchDayView: View {
     /// movement both go by it, which is what keeps them together.
     @State private var arrivals = [Int](repeating: 0, count: reach)
     @State private var forward = true
+    /// The day the swipe under way is bringing on, once it is known which
+    /// way it is going.
+    @State private var coming: Int?
+    /// One more each time a swipe is let go toward another day: the click.
+    @State private var clicks = 0
+    /// The day the last swipe brought on, so that its settling does not
+    /// play the arrival again.
+    @State private var brought: Int?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -55,6 +70,8 @@ struct WatchDayView: View {
             }
             // no dots: there are ten days, and each says at its top which it is
             .tabViewStyle(.page(indexDisplayMode: .never))
+            // the arrival goes with the finger, not with the pages' settling
+            .simultaneousGesture(swipe(days: days.count))
             // the one sky stays put behind the days as they go by
             .background { sky(at: now) }
         }
@@ -72,14 +89,41 @@ struct WatchDayView: View {
         }
         // another profile's days are other days
         .onChange(of: profile) { page = 0 }
-        // a day arrives when it is swiped to, either way; not when the app is
+        // a day the swipe did not already bring on arrives as it settles; not when the app is
         // left and goes back to the first by itself, with nobody looking
         .onChange(of: page) { old, new in
-            guard scenePhase == .active, arrivals.indices.contains(new) else { return }
+            defer { brought = nil }
+            guard scenePhase == .active, arrivals.indices.contains(new), new != brought else { return }
             forward = new > old
             arrivals[new] += 1
+            clicks += 1
         }
-        .sensoryFeedback(.selection, trigger: arrivals)
+        .sensoryFeedback(.selection, trigger: clicks)
+    }
+
+    /* The finger, alongside the pages' own swipe. As soon as it is plainly
+       going across, the day on that side starts arriving, while it is still
+       coming on; let go far enough, or quickly enough, to go there, the
+       wrist is clicked. */
+    private func swipe(days: Int) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { drag in
+                let across = drag.translation.width
+                guard coming == nil, abs(across) > 8, abs(across) > abs(drag.translation.height) * 1.2 else { return }
+                let next = page + (across < 0 ? 1 : -1)
+                coming = next
+                guard (0..<days).contains(next) else { return }
+                forward = across < 0
+                arrivals[next] += 1
+            }
+            .onEnded { drag in
+                defer { coming = nil }
+                let width = WKInterfaceDevice.current().screenBounds.width
+                guard let next = coming, (0..<days).contains(next),
+                      abs(drag.predictedEndTranslation.width) > width / 2 else { return }
+                brought = next
+                clicks += 1
+            }
     }
 
     /// The day the clock leads to and the school days after it.
@@ -168,8 +212,10 @@ struct WatchDayView: View {
        counted from its first, which was a Week 1. */
     private func dayHeader(_ date: Date, now: Date) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(Timetable.dayLabel(of: date, at: now))
+            let label = Timetable.dayLabel(of: date, at: now)
+            Text(label)
                 .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(label == "Today" ? Color.red : .white)
             Text(Timetable.week(of: date) == 0 ? "Odd week" : "Even week")
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.horizontal, 7)

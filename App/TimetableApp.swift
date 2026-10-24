@@ -19,7 +19,8 @@ struct TimetableApp: App {
     /// or clear them, where the watch has them in hand.
     static func remind() {
         DeviceLink.shared.send()
-        Task { await ClassReminders.schedule(standDown: DeviceLink.shared.watchHasReminders) }
+        // the watch's own two are left to it, once it has them
+        Task { await ClassReminders.schedule(skipping: DeviceLink.shared.watchHasReminders ? ClassReminders.watchLeads : []) }
     }
 
     var body: some Scene {

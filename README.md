@@ -265,11 +265,17 @@ the day on a watch whose phone has never had Timetable opened.
   that is on outlined with its time left, and the same pixel sky behind. No
   date, no clock, no teachers.
 - **The days ahead** are a swipe away: from right to left goes on to the next
-  school day, and the other way comes back. A day arriving is felt and seen
-  together: a click on the wrist, and at the same moment its name gives a
-  start and its rows come in from the side the swipe came from, one behind
-  another. There are ten days, which is every
-  day of both weeks. Each says at its top which day it is and whether it is
+  school day, and the other way comes back. A day arrives with the swipe:
+  as soon as the finger is plainly going across, the day on that side gives
+  a start at its name and its rows come in from the side the swipe comes
+  from, one behind another, while the page slides in; the wrist is clicked
+  as the swipe is let go. The pages say which one is on only once a swipe
+  has settled, half a second after it ends, and set off from that, the day
+  had arrived and stopped before it moved again. The Digital Crown scrolls
+  the day on screen, up and down, and never goes to another day. There are
+  ten days, which is every
+  day of both weeks. Each says at its top which day it is, today's in red,
+  and whether it is
   in the odd week or the even one (the timetable's Week 1 and Week 2). Left
   and come back to, the app is at the day the clock leads to again.
 - **The widget** (Smart Stack › Edit › add Timetable) says the class that is
@@ -458,10 +464,14 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   built again for the Mac. Right-click the desktop › Edit Widgets › search
   "Timetable". The Lock Screen sizes and the Live Activity are left out of the
   Mac's build (`#if os(iOS)`), since a Mac has neither.
-- **Reminders** are laid down on the Mac as on the phone, some four school
+- **Reminders** are laid down on the Mac as on the phone, at the times
+  picked on its own wheels in Settings, some four school
   days ahead, and topped up each new day the app is running and each time the
   Mac wakes. They are the Mac's own: where the phone or the watch is
-  reminding as well, each of them says so.
+  reminding as well, each of them says so. The Mac has no wheel picker, so
+  its wheels are drawn to look like the phone's (`MinuteWheel`): five rows,
+  the middle one on a band, the rest leaning away and fading as if round a
+  drum, coming to rest on a minute.
 - **The sky** is the same. The Mac is asked for its location the older way,
   with a `CLLocationManager`, since there is no `CLServiceSession` on macOS.
 
@@ -516,13 +526,18 @@ The school's address is `ManageBac.school` in `Page/ManageBac.swift`.
 
 ## Reminders
 
-Fifteen minutes and five minutes before each class starts, a notification
-says what it is and where ("CS in 5 min · 5F HS3"). A double period is
-announced once. The switch is in Settings.
+Before each class starts, a notification says what it is and where ("CS in
+5 min · 5F HS3"). A double period is announced once. In Settings on the
+iPhone and the Mac, **Send notifications** turns them on and off, and under
+it three wheels, as the Clock app's timer has for hours, minutes and
+seconds, pick up to three times before a class: each from Off through a
+minute to an hour (`Page/ReminderTimes.swift`). At first they are 15 and 5
+minutes. The watch's are always 15 and 5 minutes.
 
-Once Timetable has been opened on the watch, the watch sends them itself, so
-they tap the wrist whatever the phone is doing, and the phone stands down so
-nothing is said twice. Without the watch app the phone sends them, and iOS
+Once Timetable has been opened on the watch, the watch sends its two itself,
+so they tap the wrist whatever the phone is doing, and the phone leaves
+those two times to it and sends only the others picked, so nothing is said
+twice. Without the watch app the phone sends them all, and iOS
 passes them to the watch while the phone is locked. They are laid down some
 four school days ahead (the system keeps 64 for an app) and renewed each time
 either app is opened.

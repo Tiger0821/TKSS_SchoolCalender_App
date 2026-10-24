@@ -15,6 +15,7 @@ struct SettingsPanel: View {
     let close: () -> Void
     @AppStorage("boxOrder") private var savedOrder = ""
     @AppStorage("classReminders") private var reminders = true
+    @AppStorage(ClassReminders.leadsKey) private var leads = ClassReminders.standard
 
     var body: some View {
         // its own clock, for the Lock Screen switch's status
@@ -41,14 +42,18 @@ struct SettingsPanel: View {
                     SettingsSection("Reminders", symbol: "bell.badge") {
                         Toggle(isOn: $reminders) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Before each class")
+                                Text("Send notifications")
                                     .font(.body.weight(.semibold))
                                     .foregroundStyle(.primary)
-                                Text("15 minutes and 5 minutes ahead")
+                                Text(ClassReminders.summary(ClassReminders.parse(leads)))
                             }
                         }
                         .onChange(of: reminders) { TimetableApp.remind() }
-                        Text("With Timetable open once on a paired Apple Watch, the watch sends them and taps your wrist. Otherwise the phone does, and passes them to the watch while it is locked.")
+                        if reminders {
+                            // up to three times, each on a wheel of its own, as the Clock app's timer
+                            ReminderTimes { TimetableApp.remind() }
+                        }
+                        Text("Turn a wheel to Off for fewer. The Apple Watch sends its own, 15 and 5 minutes before, and taps your wrist; with Timetable open once on it, the phone leaves those two to it.")
                     }
 
                     SettingsSection("ManageBac", symbol: "checklist") {
