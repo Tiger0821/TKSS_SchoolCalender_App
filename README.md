@@ -85,7 +85,22 @@ order: touch and hold one until it lifts, drag it, and the others slide out of
 its way. Hold it near the top or bottom of the screen and the page scrolls
 under it, so a box can travel further than one screen. The order is remembered
 (`boxOrder` in the app's defaults). A swipe still scrolls the page and a tap
-still picks a day; only a held finger lifts a box.
+still picks a day; only a held finger lifts a box, the day picker's too,
+though it is all buttons: the hold goes on alongside the button under the
+finger and takes the touch from it once the box lifts, so letting go picks
+no day. It moves as the Home Screen's widgets do while they are edited:
+the one picked up grows a little, takes a shadow, holds still and goes
+wherever the finger does; the rest wobble where they are, each a little out
+of step with the next, turned about a point near its top; they slide
+smoothly out of its way; and let go, it glides into its gap and shrinks
+back (`Page/BoxMotion.swift`). Apple's numbers are not published, and the
+simulator's Home Screen does not draw its wobble to be measured, so the
+wobble is Kirupa's study of it: a degree or so each way, a beat of a
+quarter to a third of a second, each box turned only as far as moves its
+far corners about as far as an icon's go. While a box is carried the order
+is kept in the column itself and handed to the app's defaults when it is
+let go: changed in the defaults as it went, it arrived outside the
+animation, and the boxes making way jumped to their places.
 
 Nothing else is on the page. **Settings** is a page of its own off the
 right-hand edge: swipe in from that edge, or tap the gear beside the clock,
@@ -358,7 +373,9 @@ Lock Screen the Mac does in the menu bar. It runs on macOS 26 and later.
   and it lifts with a tap on the trackpad and a closed hand for a pointer,
   follows the pointer — into the other column too — while the others slide
   out of its way, and settles into the gap when let go
-  (`Mac/MacBoxes.swift`). Where each box is, is kept. The two columns are one
+  (`Mac/MacBoxes.swift`), moving as on the phone: the one carried a little
+  bigger and still, the others wobbling and sliding smoothly out of its
+  way, and it gliding into its gap. Where each box is, is kept. The two columns are one
   layout of all five boxes (`BoxColumns`), so a box keeps itself crossing
   from one to the other and glides across. A class in the day's list,
   clicked, shows its homework in a popover. A box is half a window wide, so
@@ -673,7 +690,8 @@ The widgets do not show the weather and still use no network.
   the ten-day picker and the day's card. `SetupView.swift` is setup, for both.
   `ManageBac.swift` signs in to ManageBac and reads the homework, and
   `HomeworkViews.swift` shows it: a class's list, the Homework box, the
-  sign-in sheet and the rows in Settings.
+  sign-in sheet and the rows in Settings. `BoxMotion.swift` is how the boxes
+  move while one is carried, on both: the wobble and the springs.
 - `Tools/` — `update_timetable.py`, which rebuilds the rows from the school's
   published timetable, and `draw_icon.swift`, which draws the app's icon (a
   pixel owl in a red bow tie, on white, shaded and lifted in layers) into the

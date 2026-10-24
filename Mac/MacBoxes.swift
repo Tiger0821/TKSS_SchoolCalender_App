@@ -13,7 +13,11 @@ import SwiftUI
    so the page reflows by ordinary layout. The columns are one layout of
    all five boxes (`BoxColumns`) rather than a stack each, so a box keeps
    itself when it crosses from one column to the other and glides there
-   instead of going out of one and coming into the other. */
+   instead of going out of one and coming into the other.
+
+   As on the phone, and the Home Screen: the one carried is a little bigger,
+   with a shadow, and holds still; the rest wobble where they are and slide
+   smoothly out of its way; let go, it glides into its gap (`BoxMotion`). */
 enum MacBox: String, CaseIterable, Identifiable {
     case now, holiday, homework, days, timetable
 
@@ -66,6 +70,10 @@ struct BoxBoard<Box: View>: View {
     @State private var frames: [MacBox: CGRect] = [:]
     @State private var lift: Lift?
     @State private var raised = false
+    /// The layout while a box is carried, kept here and handed back when it
+    /// is let go, as on the phone (`ReorderableStack`): changed in the
+    /// defaults, it arrived outside the animation, and the boxes jumped.
+    @State private var arranging: MacLayout?
 
     private struct Lift {
         let id: MacBox
@@ -88,7 +96,8 @@ struct BoxBoard<Box: View>: View {
     }
 
     var body: some View {
-        let order = twoColumns ? layout.columns : [layout.columns.flatMap { $0 }]
+        let shown = arranging ?? layout
+        let order = twoColumns ? shown.columns : [shown.columns.flatMap { $0 }]
         // one list of all the boxes, each told its column: in a list of its own for each column,
         // a box would be a new one in the column it went to
         let placed = order.enumerated().flatMap { column, boxes in boxes.map { Placed(box: $0, column: column) } }
@@ -108,6 +117,9 @@ struct BoxBoard<Box: View>: View {
                     } action: { frame in
                         frames[id] = frame
                     }
+                    // the others wobble where they are while one is carried
+                    .modifier(Jiggle(active: lift != nil && lift?.id != id && lift?.landing == nil,
+                                     seed: MacBox.allCases.firstIndex(of: id) ?? 0))
                     // the whole box takes the press, not only what is drawn in it
                     .contentShape(.rect(cornerRadius: 26))
                     .simultaneousGesture(holdAndDrag(id))
@@ -120,19 +132,18 @@ struct BoxBoard<Box: View>: View {
                 box(lift.id, true)
                     .frame(width: shown.width)
                     .fixedSize(horizontal: false, vertical: true)
-                    .scaleEffect(raised ? 1.03 : 1)
+                    .scaleEffect(raised ? BoxMotion.lifted : 1)
                     .shadow(color: .black.opacity(raised ? 0.25 : 0), radius: 24, y: 12)
                     .offset(x: shown.minX, y: shown.minY)
                     .allowsHitTesting(false)
                     .onAppear {
-                        withAnimation(.snappy(duration: 0.2)) { raised = true }
+                        withAnimation(BoxMotion.lift) { raised = true }
                     }
             }
         }
         .coordinateSpace(.named(space))
-        // a tap on the trackpad as a box lifts, and a lighter one each time the others make way
+        // a tap on the trackpad as a box lifts
         .sensoryFeedback(.levelChange, trigger: lift?.id) { _, lifted in lifted != nil }
-        .sensoryFeedback(.alignment, trigger: layout)
     }
 
     /* Held still for a moment, a box lifts; then it goes where the pointer
@@ -155,6 +166,7 @@ struct BoxBoard<Box: View>: View {
 
     private func pick(_ id: MacBox, _ frame: CGRect) {
         raised = false
+        arranging = layout
         lift = Lift(id: id, frame: frame)
         NSCursor.closedHand.push()
     }
@@ -167,10 +179,9 @@ struct BoxBoard<Box: View>: View {
        heights, and middle past middle had the day's card needing to be
        carried half its length before the picker made way. */
     private func makeWay() {
-        guard let lift, let from = layout.column(of: lift.id) else { return }
+        guard let lift, var next = arranging, let from = next.column(of: lift.id) else { return }
         let carried = lift.carried
         let to = twoColumns ? (carried.midX < leftWidth + spacing / 2 ? 0 : 1) : from
-        var next = layout
         if to == from {
             var boxes = next.columns[from]
             // one column shows both, the left's boxes over the right's: work in that order
@@ -195,19 +206,24 @@ struct BoxBoard<Box: View>: View {
             let index = next.columns[to].filter { (frames[$0]?.midY ?? .infinity) < carried.minY }.count
             next.columns[to].insert(lift.id, at: index)
         }
-        withAnimation(.snappy(duration: 0.3)) { layout = next }
+        withAnimation(BoxMotion.slide) { arranging = next }
     }
 
-    /// The copy goes to the gap, and only then gives way to the real box.
+    /// The copy glides to the gap and shrinks back, and only then gives way to
+    /// the real box. The layout is handed back to be kept as it goes.
     private func drop() {
         guard let id = lift?.id else { return }
         NSCursor.pop()
-        withAnimation(.snappy(duration: 0.28)) {
+        if let arranging { layout = arranging }
+        withAnimation(BoxMotion.land) {
             lift?.landing = frames[id] ?? lift?.frame
             raised = false
         } completion: {
             // a box picked up again in the meantime has no landing yet
-            if lift?.landing != nil { lift = nil }
+            if lift?.landing != nil {
+                lift = nil
+                arranging = nil
+            }
         }
     }
 }

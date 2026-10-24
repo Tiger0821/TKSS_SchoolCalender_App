@@ -1,13 +1,20 @@
 import SwiftUI
 
-/* A column of boxes that can be rearranged by hand: touch and hold one and it
-   lifts off the page, follows the finger, and the others slide out of its way;
-   let go and it settles into the gap. The order lives with the caller, so it
+/* A column of boxes that can be rearranged by hand, as the Home Screen's
+   widgets are: touch and hold one and it lifts off the page, a little
+   bigger and with a shadow, and goes wherever the finger does; the rest
+   wobble where they are and slide smoothly out of its way; let go and it
+   glides into the gap (`BoxMotion`). The order lives with the caller, so it
    can be saved.
 
    What moves under the finger is a copy drawn over the column. The real box
    stays in the layout, invisible, holding the gap open — so the column
    reflows by ordinary layout, and the copy never has to chase it.
+
+   While a box is carried the order is kept here, and only handed back to
+   the caller when it is let go. The caller keeps it in the app's defaults,
+   and a change made there arrives outside the animation it was made in:
+   the boxes making way jumped to their places instead of sliding.
 
    The boxes can be very different heights (the timetable is several times the
    day picker), and the column can be longer than the screen. So a box changes
@@ -26,6 +33,8 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
     @State private var frames: [ID: CGRect] = [:]
     @State private var lift: Lift?
     @State private var raised = false
+    /// The order while a box is carried.
+    @State private var arranging: [ID]?
 
     private struct Lift {
         let id: ID
@@ -49,10 +58,13 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
 
     private let space = "reorderable-stack"
 
+    /// The order as it is shown: as it is being arranged, or as it was left.
+    private var shown: [ID] { arranging ?? order }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: spacing) {
-                ForEach(order, id: \.self) { id in
+                ForEach(shown, id: \.self) { id in
                     content(id)
                         .opacity(lift?.id == id ? 0 : 1)
                         .overlay {
@@ -66,6 +78,9 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
                         } action: { frame in
                             frames[id] = frame
                         }
+                        // the others wobble where they are while one is carried
+                        .modifier(Jiggle(active: lift != nil && lift?.id != id && lift?.landing == nil,
+                                         seed: abs(id.hashValue) % 1000))
                         // the whole box takes the touch, not just the text in it
                         .contentShape(.rect(cornerRadius: 26))
                         .gesture(HoldAndDrag { state, point in
@@ -78,18 +93,17 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
                 let origin = origin(of: lift)
                 content(lift.id)
                     .frame(width: lift.frame.width, height: lift.frame.height)
-                    .scaleEffect(raised ? 1.03 : 1)
-                    .shadow(color: .black.opacity(raised ? 0.22 : 0), radius: 22, y: 10)
+                    .scaleEffect(raised ? BoxMotion.lifted : 1)
+                    .shadow(color: .black.opacity(raised ? 0.25 : 0), radius: 24, y: 12)
                     .offset(x: origin.x, y: origin.y)
                     .allowsHitTesting(false)
                     .onAppear {
-                        withAnimation(.snappy(duration: 0.2)) { raised = true }
+                        withAnimation(BoxMotion.lift) { raised = true }
                     }
             }
         }
         .coordinateSpace(.named(space))
         .sensoryFeedback(.impact(weight: .medium), trigger: lift?.id)
-        .sensoryFeedback(.selection, trigger: order)
         // while a box is in the air, keep checking whether it is being held
         // at an edge — a finger held still sends nothing to react to
         .task(id: lift?.id) {
@@ -103,8 +117,8 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
 
     private func origin(of lift: Lift) -> CGPoint {
         if let landing = lift.landing { return landing.origin }
-        // it travels up and down with the finger, and only leans sideways
-        return CGPoint(x: lift.frame.minX + lift.moved.width * 0.15, y: lift.top)
+        // wherever the finger takes it, as a widget on the Home Screen goes
+        return CGPoint(x: lift.frame.minX + lift.moved.width, y: lift.top)
     }
 
     private func handle(_ id: ID, _ state: UIGestureRecognizer.State, _ point: CGPoint) {
@@ -113,6 +127,7 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
             guard let frame = frames[id] else { return }
             let offset = scroller?.offset ?? 0
             raised = false
+            arranging = order
             lift = Lift(id: id, frame: frame, touch: point, startOffset: offset, offset: offset)
         case .changed:
             guard let current = lift, current.id == id, current.landing == nil else { return }
@@ -130,7 +145,7 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
     /// whose middle its top edge has crossed, or down past every box whose
     /// middle its bottom edge has.
     private func makeWay() {
-        guard let lift, let from = order.firstIndex(of: lift.id) else { return }
+        guard let lift, var order = arranging, let from = order.firstIndex(of: lift.id) else { return }
         let top = lift.top, bottom = lift.top + lift.frame.height
         var to = from
         while to > 0, let above = frames[order[to - 1]], top < above.midY { to -= 1 }
@@ -138,9 +153,8 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
             while to < order.count - 1, let below = frames[order[to + 1]], bottom > below.midY { to += 1 }
         }
         guard to != from else { return }
-        withAnimation(.snappy(duration: 0.3)) {
-            order.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
-        }
+        order.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        withAnimation(BoxMotion.slide) { arranging = order }
     }
 
     /// Scrolls the page a step when the lifted box is being held near the top
@@ -166,15 +180,20 @@ struct ReorderableStack<ID: Hashable, Content: View>: View {
         makeWay()
     }
 
-    /// The copy flies to the gap, and only then gives way to the real box.
+    /// The copy glides to the gap and shrinks back, and only then gives way to
+    /// the real box. The order is handed back to be kept as it goes.
     private func drop() {
         guard let id = lift?.id else { return }
-        withAnimation(.snappy(duration: 0.28)) {
+        if let arranging { order = arranging }
+        withAnimation(BoxMotion.land) {
             lift?.landing = frames[id] ?? lift?.frame
             raised = false
         } completion: {
             // a box picked up again in the meantime has no landing yet
-            if lift?.landing != nil { lift = nil }
+            if lift?.landing != nil {
+                lift = nil
+                arranging = nil
+            }
         }
     }
 }
@@ -195,18 +214,52 @@ final class Scroller {
 /* A long press that keeps reporting where the finger is once it has been
    recognised. UIKit's recogniser is used rather than SwiftUI's long-press-
    then-drag because it leaves the scroll view alone: a swipe still scrolls
-   the page, and only a finger held still lifts a box. */
+   the page, and only a finger held still lifts a box.
+
+   It goes on alongside the buttons in a box, not after them: the day
+   picker is all buttons, and a button took the touch for itself, so the
+   picker could not be held and moved at all. Once it has the box, the
+   touch is taken from the button, and the day under the finger is not
+   picked on letting go. Not alongside the page's scrolling, though, or the
+   page would scroll under a box being carried. */
 struct HoldAndDrag: UIGestureRecognizerRepresentable {
     let action: (UIGestureRecognizer.State, CGPoint) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Alongside {
+        Alongside()
+    }
 
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
         let recognizer = UILongPressGestureRecognizer()
         recognizer.minimumPressDuration = 0.35
+        recognizer.delegate = context.coordinator
         return recognizer
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
+        if recognizer.state == .began { context.coordinator.takeTouch() }
         // the window's coordinates stay put while the boxes move
         action(recognizer.state, recognizer.location(in: nil))
+    }
+
+    final class Alongside: NSObject, UIGestureRecognizerDelegate {
+        /// The buttons' own recognisers that went along with this one.
+        private let others = NSHashTable<UIGestureRecognizer>.weakObjects()
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            guard !(other is UIPanGestureRecognizer) else { return false }
+            others.add(other)
+            return true
+        }
+
+        /// Cancels them, turned off and on again, so a button let go of under the box doesn't fire.
+        func takeTouch() {
+            for other in others.allObjects {
+                other.isEnabled = false
+                other.isEnabled = true
+            }
+            others.removeAllObjects()
+        }
     }
 }
