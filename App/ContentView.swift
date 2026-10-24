@@ -112,6 +112,8 @@ struct ContentView: View {
         .sheet(isPresented: $homework.signingIn) {
             ManageBacSignIn()
         }
+        // ManageBac is read from a page that has to be in the window to load here
+        .background { ManageBacReading() }
     }
 
     /* A finger pulling the settings page in from the right edge, or pushing

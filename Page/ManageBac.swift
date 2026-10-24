@@ -90,6 +90,10 @@ final class Homework {
     private(set) var problem: String?
     /// The sign-in page is up.
     var signingIn = false
+    /// The page ManageBac is being read from, while it is. The phone puts a
+    /// web page that is in no window to sleep before it has loaded, so the
+    /// phone's page gives it a place, out of sight (`ManageBacReading`).
+    private(set) var reading: WebPage?
 
     private struct Saved: Codable {
         var tasks: [HomeworkTask]
@@ -129,6 +133,9 @@ final class Homework {
         ManageBac.log.notice("signed in; cookies: \(kept, privacy: .public)")
         status = .signedIn
         signingIn = false
+        // kept at once, not only once the first look is done: a look that never ended left the
+        // phone thinking it had never been signed in
+        save()
         await refresh(force: true)
     }
 
@@ -156,7 +163,10 @@ final class Homework {
         isLoading = true
         defer { isLoading = false }
         do {
-            let reader = try await Reader()
+            let page = WebPage()
+            reading = page
+            defer { reading = nil }
+            let reader = try await Reader(page: page)
             let start = Timetable.calendar.date(byAdding: .day, value: -14, to: Timetable.calendar.startOfDay(for: .now))!
             var read = try await reader.tasks(from: start, days: 75)
             classes = (try? await reader.classes()) ?? classes
@@ -265,18 +275,40 @@ final class Homework {
    that lands on the sign-in page means the session has run out. */
 @MainActor
 private struct Reader {
-    enum Failure: Error {
+    enum Failure: LocalizedError {
         case signedOut
         case unreadable
+        case noAnswer
+
+        var errorDescription: String? {
+            switch self {
+            case .signedOut: "Signed out of ManageBac."
+            case .unreadable: "ManageBac sent something Timetable couldn't read."
+            case .noAnswer: "ManageBac didn't answer."
+            }
+        }
     }
 
-    private let page = WebPage()
+    private let page: WebPage
 
     /// Open the calendar page: its sidebar has the classes, and its
-    /// Subscribe button the calendar feed's address.
-    init() async throws {
-        for try await event in page.load(ManageBac.school.appending(path: "student/calendar")) where event == .finished {
-            break
+    /// Subscribe button the calendar feed's address. Given up on after
+    /// forty seconds: a page that never finished left the box looking for
+    /// ever.
+    init(page: WebPage) async throws {
+        self.page = page
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                for try await event in page.load(ManageBac.school.appending(path: "student/calendar")) where event == .finished {
+                    break
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(40))
+                throw Failure.noAnswer
+            }
+            try await group.next()
+            group.cancelAll()
         }
         let landed = page.url?.path() ?? "nothing"
         ManageBac.log.notice("the calendar page opened at \(landed, privacy: .public)")

@@ -9,9 +9,15 @@ import WebKit
 // MARK: - Signing in
 
 /// ManageBac's own sign-in page, in a sheet. Once it reaches a student page
-/// the session is there, and the sheet goes.
+/// the session is there, and the sheet goes. A parent's or a teacher's
+/// account has no student pages: one already signed in on the phone, filled
+/// in by the phone's saved passwords, went straight to /parent and the sheet
+/// waited for ever. Such an account is said to be one, with the way out of
+/// it, back to the login form.
 struct ManageBacSignIn: View {
     @State private var page = WebPage()
+    /// The account the page landed in is a parent's or a teacher's: "parent" or "teacher".
+    @State private var role: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,10 +25,26 @@ struct ManageBacSignIn: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Sign in to ManageBac")
                         .font(.headline)
-                    Text("Your password goes to ManageBac, not to Timetable. Tick \u{201C}Remember me\u{201D} to stay signed in.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let role {
+                        Text("This is a \(role)'s account. Timetable reads a student's homework: sign in with your own.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Use Another Account") {
+                            Task {
+                                await Homework.shared.signOut()
+                                self.role = nil
+                                _ = page.load(ManageBac.login)
+                            }
+                        }
+                        .buttonStyle(PillButtonStyle(compact: true))
+                        .padding(.top, 4)
+                    } else {
+                        Text("Your password goes to ManageBac, not to Timetable. Tick \u{201C}Remember me\u{201D} to stay signed in.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer(minLength: 0)
                 Button("Cancel") { Homework.shared.signingIn = false }
@@ -43,8 +65,29 @@ struct ManageBacSignIn: View {
             // where it has got to: the address, never what is typed
             let path = url?.path() ?? "nothing"
             ManageBac.log.notice("the sign-in page is at \(path, privacy: .public)")
-            guard let url, url.host() == ManageBac.school.host(), url.path().hasPrefix("/student") else { return }
-            Task { await Homework.shared.signedIn() }
+            guard let url, url.host() == ManageBac.school.host() else { return }
+            if url.path().hasPrefix("/student") {
+                role = nil
+                Task { await Homework.shared.signedIn() }
+            } else if let other = ["parent", "teacher"].first(where: { url.path().hasPrefix("/\($0)") }) {
+                role = other
+            }
+        }
+    }
+}
+
+/* Where ManageBac is read from, out of sight. The phone puts a web page
+   that is in no window to sleep before it has finished loading, so the page
+   being read from is given a place in one while it is read: a point across,
+   and not seen or touched. The Mac reads from a page in no window. */
+struct ManageBacReading: View {
+    var body: some View {
+        if let page = Homework.shared.reading {
+            WebView(page)
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -224,9 +267,19 @@ struct HomeworkCard: View {
                     ConnectPrompt(text: "Signed out of ManageBac.", again: true)
                 }
                 if due.isEmpty {
-                    Text(homework.fetched == nil ? "Looking…" : "Nothing due.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let problem = homework.problem, !homework.isLoading {
+                        // a look that failed says so, and can be tried again, rather than looking on
+                        Text(problem)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Try Again") { Task { await homework.refresh(force: true) } }
+                            .buttonStyle(PillButtonStyle(compact: true))
+                    } else {
+                        Text(homework.fetched == nil ? "Looking…" : "Nothing due.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 ForEach(Array(due)) { task in
                     HomeworkRow(task: task, now: now)
